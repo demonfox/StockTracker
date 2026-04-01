@@ -1,0 +1,28 @@
+# StockTracker Configuration
+# ===========================
+
+# Database settings
+database:
+  # SQLite database file path (relative to backend/ directory)
+  url: "sqlite+aiosqlite:///./stocktracker.db"
+
+# Background scheduler settings
+scheduler:
+  # How often to refresh stock data (in seconds)
+  # Recommended: 30-300 for normal use; minimum 10 to avoid API throttling
+  refresh_interval_seconds: 30
+
+  # Only fetch data during China market trading hours (9:30 - 15:00 CST)?
+  # Set to true to save API calls outside trading hours
+  market_hours_only: false
+
+# CORS settings (allowed origins for frontend dev server)
+cors:
+  origins:
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
+
+# Server settings
+server:
+  host: "0.0.0.0"
+  port: 8000

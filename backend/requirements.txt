@@ -1,0 +1,21 @@
+# StockTracker Backend Dependencies
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy[asyncio]==2.0.48
+aiosqlite==0.20.0
+
+# Stock data source
+akshare==1.18.49
+
+# Background scheduler
+apscheduler==3.10.4
+
+# Configuration
+pyyaml==6.0.2
+
+# HTTP client (used by AkShare internally, also useful for testing)
+httpx==0.28.1
