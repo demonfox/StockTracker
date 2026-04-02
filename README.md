@@ -336,7 +336,7 @@ Base URL: `http://localhost:8000`
 ### Data Flow
 
 1. **User adds a stock** → Frontend `POST /api/stocks` → Backend inserts into DB → Immediately fetches data from AkShare → Returns complete stock record
-2. **Scheduler fires** (every N seconds) → Calls `ak.stock_zh_a_spot_em()` → Filters tracked symbols → Batch-updates all stocks in a single transaction
+2. **Scheduler fires** (every N seconds) → Queries each tracked symbol individually via `stock_bid_ask_em` (CN) or `stock_us_hist` (US) → Batch-updates all stocks in a single transaction
 3. **Frontend polls** (configurable interval) → `GET /api/stocks` → Renders sorted table with latest prices and color-coded changes
 
 ---

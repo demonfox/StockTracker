@@ -6,9 +6,9 @@ Business logic services for StockTracker.
 """
 
 from app.services.stock_fetcher import (
-    fetch_all_cn_stocks,
+    fetch_cn_stock_realtime,
     fetch_stocks_by_symbols,
-    map_akshare_row_to_dict,
+    fetch_us_stock_by_hist,
 )
 from app.services.scheduler import (
     get_scheduler_status,
@@ -18,9 +18,9 @@ from app.services.scheduler import (
 )
 
 __all__ = [
-    "fetch_all_cn_stocks",
+    "fetch_cn_stock_realtime",
     "fetch_stocks_by_symbols",
-    "map_akshare_row_to_dict",
+    "fetch_us_stock_by_hist",
     "get_scheduler_status",
     "start_scheduler",
     "stop_scheduler",
