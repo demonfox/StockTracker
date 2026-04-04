@@ -13,7 +13,7 @@ from typing import Any
 import akshare as ak
 import pandas as pd
 
-from app.services.eastmoney_api import fetch_stock_quote
+from backend.app.services.eastmoney_api import fetch_stock_quote
 
 logger = logging.getLogger(__name__)
 
