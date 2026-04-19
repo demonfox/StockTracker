@@ -8,12 +8,13 @@ queries to avoid downloading the entire market each refresh:
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import akshare as ak
 import pandas as pd
 
-from backend.app.services.eastmoney_api import fetch_stock_quote
+from app.services.eastmoney_api import fetch_stock_quote  # pyright: ignore[reportImplicitRelativeImport]
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,21 @@ def fetch_cn_stock_realtime(symbol: str) -> dict[str, Any] | None:
     data["pe_ratio"] = _safe_float(lookup.get("市盈率"))
     data["pb_ratio"] = _safe_float(lookup.get("市净率"))
 
+    # Last trade timestamp (f86): Unix epoch → market-local naive datetime.
+    # CN stocks use CST (UTC+8). We store the naive local time because
+    # SQLite drops timezone info; the frontend knows to display CN times
+    # in Asia/Shanghai.
+    _CST = timezone(timedelta(hours=8))
+    raw_ts = lookup.get("最新成交时间")
+    if raw_ts is not None:
+        try:
+            aware_dt = datetime.fromtimestamp(int(raw_ts), tz=_CST)
+            data["last_trade_time"] = aware_dt.replace(tzinfo=None)
+        except (ValueError, TypeError, OSError):
+            data["last_trade_time"] = None
+    else:
+        data["last_trade_time"] = None
+
     return data
 
 
@@ -142,6 +158,7 @@ def fetch_cn_stock_by_hist(symbol: str) -> dict[str, Any] | None:
         "circulating_market_cap": None,
         "pe_ratio": None,
         "pb_ratio": None,
+        "last_trade_time": None,
     }
 
 
@@ -199,6 +216,7 @@ def fetch_us_stock_by_hist(ticker: str) -> dict[str, Any] | None:
                 "circulating_market_cap": None,
                 "pe_ratio": None,
                 "pb_ratio": None,
+                "last_trade_time": None,
             }
 
         except Exception as e:

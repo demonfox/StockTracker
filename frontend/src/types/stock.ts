@@ -42,6 +42,7 @@ export interface Stock {
   low_52w: number | null;
 
   // Timestamps (ISO strings from backend)
+  last_trade_time: string | null;
   updated_at: string | null;
   created_at: string | null;
 }

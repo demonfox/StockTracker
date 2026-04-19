@@ -114,6 +114,10 @@ class Stock(Base):
     )
 
     # ── Timestamps ────────────────────────────────────────────────────
+    last_trade_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True,
+        comment="Timestamp of the last market trade for this ticker"
+    )
     updated_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True, onupdate=func.now(),
         comment="Last data update time"

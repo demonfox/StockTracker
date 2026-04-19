@@ -82,6 +82,7 @@ class StockResponse(BaseModel):
     low_52w: Optional[float] = None
 
     # Timestamps
+    last_trade_time: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 

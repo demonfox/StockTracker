@@ -76,6 +76,22 @@ function formatCurrency(n: number | null, market?: string): string {
   return n.toLocaleString("zh-CN");
 }
 
+function formatLastTradeTime(iso: string | null, market?: string): string {
+  if (!iso) return "最近成交时间: 暂无数据";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "最近成交时间: 暂无数据";
+
+  // The backend stores market-local naive datetimes (CST for CN, ET for US).
+  // The browser interprets the naive ISO string as local time, so we need to
+  // undo any local-tz offset and display the raw date/time as-is.
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const tzLabel = market === "US" ? "ET" : "CST";
+  const formatted =
+    `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return `最近成交: ${formatted} (${tzLabel})`;
+}
+
 function getChangeColor(change: number | null, market?: string): string {
   if (change === null || change === undefined || change === 0) {
     return "text-content-secondary";
@@ -145,7 +161,10 @@ export default function StockTable({
         sortable: true,
         width: "w-24",
         render: (s) => (
-          <span className="font-mono font-semibold text-content-primary text-[13px]">
+          <span
+            className="font-mono font-semibold text-content-primary text-[13px]"
+            title={formatLastTradeTime(s.last_trade_time, s.market)}
+          >
             {s.symbol}
           </span>
         ),

@@ -8,6 +8,7 @@ along with a FastAPI dependency for injecting DB sessions into routes.
 import logging
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -39,11 +40,26 @@ async_session_factory = async_sessionmaker(
 
 async def init_db() -> None:
     """
-    Create all tables if they don't exist.
+    Create all tables if they don't exist, then apply lightweight
+    column migrations for SQLite (which doesn't support full ALTER TABLE).
     Called once during application startup.
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Lightweight migration: add columns that may be missing in older DBs.
+    _MIGRATIONS: list[str] = [
+        "ALTER TABLE stocks ADD COLUMN last_trade_time DATETIME",
+    ]
+    async with engine.begin() as conn:
+        for ddl in _MIGRATIONS:
+            try:
+                await conn.execute(text(ddl))
+                logger.info("Migration applied: %s", ddl)
+            except Exception:
+                # Column already exists — safe to ignore.
+                pass
+
     logger.info("Database tables initialized.")
 
 

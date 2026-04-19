@@ -58,6 +58,7 @@ _FIELD_MAP: dict[str, str] = {
     "f117": "流通市值",
     "f162": "市盈率",
     "f167": "市净率",
+    "f86": "最新成交时间",
 }
 
 # Default timeout for HTTP requests (seconds).
