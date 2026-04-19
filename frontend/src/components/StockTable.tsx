@@ -176,7 +176,10 @@ export default function StockTable({
         sortable: true,
         width: "w-28",
         render: (s) => (
-          <span className="font-medium text-content-primary truncate block max-w-[120px]">
+          <span
+            className="font-medium text-content-primary truncate block max-w-[120px]"
+            title={formatLastTradeTime(s.last_trade_time, s.market)}
+          >
             {s.name ?? "—"}
           </span>
         ),
