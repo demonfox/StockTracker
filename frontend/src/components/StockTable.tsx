@@ -137,7 +137,7 @@ export default function StockTable({
   onAddStock,
 }: StockTableProps) {
   const [sort, setSort] = useState<SortConfig>({
-    field: "change_percent",
+    field: "id",
     direction: "descend",
   });
   const [deletingSymbol, setDeletingSymbol] = useState<string | null>(null);
