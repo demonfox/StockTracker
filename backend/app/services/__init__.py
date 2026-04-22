@@ -9,6 +9,7 @@ from app.services.stock_fetcher import (  # pyright: ignore[reportImplicitRelati
     fetch_cn_stock_realtime,
     fetch_stocks_by_symbols,
     fetch_us_stock_by_hist,
+    fetch_us_stock_realtime,
 )
 from app.services.scheduler import (  # pyright: ignore[reportImplicitRelativeImport]
     get_scheduler_status,
@@ -21,6 +22,7 @@ __all__ = [
     "fetch_cn_stock_realtime",
     "fetch_stocks_by_symbols",
     "fetch_us_stock_by_hist",
+    "fetch_us_stock_realtime",
     "get_scheduler_status",
     "start_scheduler",
     "stop_scheduler",

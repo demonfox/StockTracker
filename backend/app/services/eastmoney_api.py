@@ -69,20 +69,32 @@ _MAX_RETRIES = 3
 _RETRY_BACKOFF_BASE = 0.5  # seconds; actual delay = base * 2^attempt
 
 
-def _build_url(symbol: str) -> str:
+def _build_url(secid: str) -> str:
     """
-    Build the full request URL for a single A-share symbol.
+    Build the full push2 request URL for a given ``secid``.
 
-    EastMoney uses market codes: 1 for Shanghai (6xxxxx), 0 for Shenzhen.
+    Args:
+        secid: EastMoney security identifier, e.g. ``"1.600519"``
+               (CN Shanghai), ``"0.002594"`` (CN Shenzhen),
+               ``"105.AAPL"`` (NASDAQ), ``"106.BABA"`` (NYSE).
     """
-    market_code = 1 if symbol.startswith("6") else 0
     params = urlencode({
         "fltt": "2",
         "invt": "2",
         "fields": _FIELDS,
-        "secid": f"{market_code}.{symbol}",
+        "secid": secid,
     })
     return f"{_PUSH2_STOCK_URL}?{params}"
+
+
+def _cn_secid(symbol: str) -> str:
+    """Return the EastMoney secid for a CN A-share symbol."""
+    market_code = 1 if symbol.startswith("6") else 0
+    return f"{market_code}.{symbol}"
+
+
+# US exchange codes on EastMoney: 105 = NASDAQ, 106 = NYSE, 107 = AMEX.
+US_EXCHANGE_PREFIXES = ("105", "106", "107")
 
 
 def _do_request(url: str) -> bytes:
@@ -107,7 +119,7 @@ def _do_request(url: str) -> bytes:
         return resp.read()
 
 
-def fetch_stock_quote(symbol: str) -> dict[str, Any] | None:
+def fetch_cn_stock_quote(symbol: str) -> dict[str, Any] | None:
     """
     Fetch a realtime quote for a single A-share stock from EastMoney.
 
@@ -122,7 +134,64 @@ def fetch_stock_quote(symbol: str) -> dict[str, Any] | None:
         A dict mapping Chinese item names (e.g. ``"最新"``, ``"今开"``)
         to their numeric values, or ``None`` on any failure.
     """
-    url = _build_url(symbol)
+    return _fetch_quote_by_secid(_cn_secid(symbol), label=symbol)
+
+
+def fetch_us_stock_quote(ticker: str) -> dict[str, Any] | None:
+    """
+    Fetch a realtime quote for a single US stock from EastMoney push2.
+
+    Probes common exchange prefixes (NASDAQ 105, NYSE 106, AMEX 107)
+    to find the correct ``secid``.  On the first successful probe the
+    prefix is cached in ``_us_prefix_cache`` so subsequent calls skip
+    the probing.
+
+    Args:
+        ticker: US ticker, e.g. ``"AAPL"``.
+
+    Returns:
+        A dict mapping Chinese item names to values, or ``None``.
+    """
+    cached = _us_prefix_cache.get(ticker)
+    if cached:
+        result = _fetch_quote_by_secid(cached, label=f"US/{ticker}")
+        if result is not None:
+            return result
+
+    # Probe each exchange prefix
+    for prefix in US_EXCHANGE_PREFIXES:
+        secid = f"{prefix}.{ticker}"
+        result = _fetch_quote_by_secid(secid, label=f"US/{ticker}")
+        if result is not None:
+            _us_prefix_cache[ticker] = secid
+            logger.debug("Resolved US/%s → secid %s", ticker, secid)
+            return result
+
+    logger.warning("EastMoney push2 returned no data for US/%s.", ticker)
+    return None
+
+
+# ── Internal: shared fetch-by-secid logic ─────────────────────────────
+
+# Cache: US ticker → resolved secid (e.g. "AAPL" → "105.AAPL")
+_us_prefix_cache: dict[str, str] = {}
+
+
+def _fetch_quote_by_secid(
+    secid: str,
+    label: str = "",
+) -> dict[str, Any] | None:
+    """
+    Low-level helper: fetch and parse a push2 quote for the given secid.
+
+    Retries up to ``_MAX_RETRIES`` times with exponential back-off.
+
+    Args:
+        secid: EastMoney security id, e.g. ``"1.600519"`` or ``"105.AAPL"``.
+        label: Human-readable label for log messages.
+    """
+    url = _build_url(secid)
+    display = label or secid
     raw: bytes | None = None
     last_exc: Exception | None = None
 
@@ -137,7 +206,7 @@ def fetch_stock_quote(symbol: str) -> dict[str, Any] | None:
                 logger.info(
                     "EastMoney request for %s failed (attempt %d/%d), "
                     "retrying in %.1fs: %s",
-                    symbol,
+                    display,
                     attempt + 1,
                     _MAX_RETRIES,
                     delay,
@@ -161,7 +230,7 @@ def fetch_stock_quote(symbol: str) -> dict[str, Any] | None:
             "  exception chain : %s\n"
             "  message         : %s\n"
             "  url             : %s",
-            symbol,
+            display,
             _MAX_RETRIES,
             exc_chain,
             last_exc,
@@ -174,7 +243,7 @@ def fetch_stock_quote(symbol: str) -> dict[str, Any] | None:
     except (json.JSONDecodeError, ValueError) as exc:
         logger.warning(
             "EastMoney push API returned invalid JSON for %s: %s",
-            symbol,
+            display,
             exc,
         )
         return None
@@ -182,7 +251,7 @@ def fetch_stock_quote(symbol: str) -> dict[str, Any] | None:
     inner = data_json.get("data")
     if not inner:
         logger.warning(
-            "EastMoney push API returned empty data for %s.", symbol,
+            "EastMoney push API returned empty data for %s.", display,
         )
         return None
 

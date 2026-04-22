@@ -4,7 +4,7 @@ AkShare stock data fetching service for StockTracker.
 Supports both China A-share and US equity markets using **per-symbol**
 queries to avoid downloading the entire market each refresh:
   - CN: EastMoney push API (realtime per-symbol) / stock_zh_a_hist (fallback)
-  - US: stock_us_hist      (per-symbol daily K-line)
+  - US: EastMoney push API (realtime per-symbol) / stock_us_hist  (fallback)
 """
 
 import logging
@@ -14,12 +14,12 @@ from typing import Any
 import akshare as ak
 import pandas as pd
 
-from app.services.eastmoney_api import fetch_stock_quote  # pyright: ignore[reportImplicitRelativeImport]
+from app.services.eastmoney_api import (  # pyright: ignore[reportImplicitRelativeImport]
+    fetch_cn_stock_quote,
+    fetch_us_stock_quote,
+)
 
 logger = logging.getLogger(__name__)
-
-# Cache: pure ticker → exchange-prefixed code (e.g. "AAPL" → "105.AAPL")
-_us_symbol_prefix_cache: dict[str, str] = {}
 
 
 def _safe_float(value: Any) -> float | None:
@@ -65,7 +65,7 @@ def fetch_cn_stock_realtime(symbol: str) -> dict[str, Any] | None:
     """
     Fetch realtime quote for a single A-share stock from EastMoney.
 
-    Uses ``eastmoney_api.fetch_stock_quote`` which makes a fresh TCP
+    Uses ``eastmoney_api.fetch_cn_stock_quote`` which makes a fresh TCP
     connection per call (``Connection: close``), completely avoiding
     the stale-connection-pool ``RemoteDisconnected`` errors that occur
     with ``requests``/urllib3's default keep-alive behaviour.
@@ -76,7 +76,7 @@ def fetch_cn_stock_realtime(symbol: str) -> dict[str, Any] | None:
     Returns:
         Data dict or None on failure.
     """
-    lookup = fetch_stock_quote(symbol)
+    lookup = fetch_cn_stock_quote(symbol)
     if not lookup:
         return None
 
@@ -166,37 +166,81 @@ def fetch_cn_stock_by_hist(symbol: str) -> dict[str, Any] | None:
 # US Stock Fetchers — per-symbol strategy
 # ═══════════════════════════════════════════════════════════════════════
 
+# US Eastern Time (ET) is UTC-5 (EST) / UTC-4 (EDT).
+# We use UTC-4 as a fixed offset; the frontend labels it "ET" generically.
+# For exact DST-aware conversion, consider ``zoneinfo`` (Python 3.9+).
+_ET = timezone(timedelta(hours=-4))
 
-def fetch_us_stock_by_hist(ticker: str) -> dict[str, Any] | None:
+
+def fetch_us_stock_realtime(ticker: str) -> dict[str, Any] | None:
     """
-    Fetch the latest daily K-line for a single US stock.
+    Fetch realtime quote for a single US stock from EastMoney push2.
 
-    stock_us_hist() requires exchange-prefixed codes like "105.AAPL".
-    We first check the cache, then brute-force common prefixes
-    (105 = NASDAQ, 106 = NYSE).
+    Uses ``eastmoney_api.fetch_us_stock_quote`` which probes NASDAQ /
+    NYSE / AMEX exchange prefixes automatically.
 
     Args:
-        ticker: Pure ticker, e.g. "AAPL".
+        ticker: US ticker, e.g. "AAPL".
 
     Returns:
         Data dict or None on failure.
     """
-    prefixed = _us_symbol_prefix_cache.get(ticker)
-    candidate_prefixes = (
-        [prefixed] if prefixed
-        else [f"105.{ticker}", f"106.{ticker}"]
-    )
+    lookup = fetch_us_stock_quote(ticker)
+    if not lookup:
+        return None
 
-    for code in candidate_prefixes:
+    data: dict[str, Any] = {"symbol": ticker, "name": lookup.get("名称")}
+    for cn_key, db_field in _BID_ASK_ITEM_MAP.items():
+        raw = lookup.get(cn_key)
+        if db_field == "volume":
+            data[db_field] = _safe_int(raw)
+        else:
+            data[db_field] = _safe_float(raw)
+
+    data["amplitude"] = None
+    data["market_cap"] = _safe_float(lookup.get("总市值"))
+    data["circulating_market_cap"] = _safe_float(lookup.get("流通市值"))
+    data["pe_ratio"] = _safe_float(lookup.get("市盈率"))
+    data["pb_ratio"] = _safe_float(lookup.get("市净率"))
+
+    # Last trade timestamp → naive ET datetime (see CN counterpart for rationale).
+    raw_ts = lookup.get("最新成交时间")
+    if raw_ts is not None:
+        try:
+            aware_dt = datetime.fromtimestamp(int(raw_ts), tz=_ET)
+            data["last_trade_time"] = aware_dt.replace(tzinfo=None)
+        except (ValueError, TypeError, OSError):
+            data["last_trade_time"] = None
+    else:
+        data["last_trade_time"] = None
+
+    return data
+
+
+def fetch_us_stock_by_hist(ticker: str) -> dict[str, Any] | None:
+    """
+    Fallback fetcher for a single US stock: latest daily K-line.
+
+    Uses AkShare's ``stock_us_hist`` which hits EastMoney's historical
+    K-line endpoint.  This endpoint may be unreliable (connection
+    resets), so ``fetch_us_stock_realtime`` should be preferred.
+
+    Args:
+        ticker: US ticker, e.g. "AAPL".
+
+    Returns:
+        Data dict or None on failure.
+    """
+    # Probe NASDAQ (105), NYSE (106), AMEX (107)
+    for prefix in ("105", "106", "107"):
+        code = f"{prefix}.{ticker}"
         try:
             df: pd.DataFrame = ak.stock_us_hist(symbol=code)
             if df is None or df.empty:
                 continue
 
             row = df.iloc[-1]
-            # Remember the working prefix for next time
-            _us_symbol_prefix_cache[ticker] = code
-            logger.debug("Got data for US/%s via %s.", ticker, code)
+            logger.debug("Got hist data for US/%s via %s.", ticker, code)
 
             return {
                 "symbol": ticker,
@@ -220,9 +264,9 @@ def fetch_us_stock_by_hist(ticker: str) -> dict[str, Any] | None:
             }
 
         except Exception as e:
-            logger.debug("Prefix %s failed for %s: %s", code, ticker, e)
+            logger.debug("Hist prefix %s failed for %s: %s", code, ticker, e)
 
-    logger.warning("Failed to fetch data for US/%s.", ticker)
+    logger.warning("fetch_us_stock_by_hist failed for US/%s.", ticker)
     return None
 
 
@@ -243,7 +287,8 @@ def fetch_stocks_by_symbols(
             1. Try EastMoney push API per symbol (realtime, ~100 ms each).
             2. Fallback per symbol: stock_zh_a_hist (daily K-line).
         US:
-            1. stock_us_hist per symbol (daily K-line with prefix probing).
+            1. Try EastMoney push API per symbol (realtime).
+            2. Fallback per symbol: stock_us_hist (daily K-line, may be unreliable).
 
     Args:
         symbols: List of stock symbols (e.g. ["600519"] or ["AAPL"]).
@@ -292,12 +337,21 @@ def _fetch_cn_symbols(symbols: list[str]) -> dict[str, dict[str, Any]]:
 
 def _fetch_us_symbols(symbols: list[str]) -> dict[str, dict[str, Any]]:
     """
-    Fetch US stocks one-by-one via daily hist endpoint.
+    Fetch US stocks one-by-one: realtime push2 → daily hist fallback.
     """
-    logger.info("Fetching data for %d US symbol(s)...", len(symbols))
+    logger.info("Fetching realtime data for %d US symbol(s)...", len(symbols))
     result: dict[str, dict[str, Any]] = {}
 
     for ticker in symbols:
+        data = fetch_us_stock_realtime(ticker)
+        if data is not None:
+            result[ticker] = data
+            continue
+
+        # Realtime failed — fall back to daily hist (may also fail)
+        logger.info(
+            "US realtime failed for %s, falling back to hist.", ticker,
+        )
         data = fetch_us_stock_by_hist(ticker)
         if data is not None:
             result[ticker] = data
