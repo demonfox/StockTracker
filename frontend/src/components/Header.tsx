@@ -19,7 +19,7 @@ import {
   Clock,
   ChevronDown,
 } from "lucide-react";
-import type { SchedulerStatus } from "../types/stock";
+import type { ConfigUpdateRequest, SchedulerStatus } from "../types/stock";
 
 // ── Props ────────────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ interface HeaderProps {
   onRefresh: () => void;
   onAddStock: () => void;
   onPollIntervalChange: (ms: number) => void;
+  onUpdateConfig: (config: ConfigUpdateRequest) => Promise<boolean>;
 }
 
 // ── Poll interval presets ────────────────────────────────────────────
@@ -55,6 +56,7 @@ export default function Header({
   onRefresh,
   onAddStock,
   onPollIntervalChange,
+  onUpdateConfig,
 }: HeaderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -263,6 +265,43 @@ export default function Header({
                       {opt.label}
                     </button>
                   ))}
+                </div>
+                {/* Market hours only toggle */}
+                <div className="px-3 py-2.5 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-content-primary">
+                        仅交易时段刷新
+                      </p>
+                      <p className="text-[10px] text-content-muted mt-0.5">
+                        休市时跳过数据拉取
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newValue = !(schedulerStatus?.market_hours_only ?? false);
+                        onUpdateConfig({ market_hours_only: newValue });
+                      }}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full
+                                  transition-colors duration-200 focus:outline-none cursor-pointer
+                                  ${schedulerStatus?.market_hours_only
+                                    ? "bg-primary"
+                                    : "bg-gray-300"
+                                  }`}
+                      role="switch"
+                      aria-checked={schedulerStatus?.market_hours_only ?? false}
+                      aria-label="仅交易时段刷新"
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm
+                                    transform transition-transform duration-200
+                                    ${schedulerStatus?.market_hours_only
+                                      ? "translate-x-[18px]"
+                                      : "translate-x-[3px]"
+                                    }`}
+                      />
+                    </button>
+                  </div>
                 </div>
                 <div className="px-3 py-2 border-t border-gray-100">
                   <div className="flex items-center justify-between text-[10px] text-content-muted">

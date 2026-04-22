@@ -12,8 +12,10 @@ scheduler:
   # Recommended: 30-300 for normal use; minimum 10 to avoid API throttling
   refresh_interval_seconds: 30
 
-  # Only fetch data during China market trading hours (9:30 - 15:00 CST)?
-  # Set to true to save API calls outside trading hours
+  # Only fetch data during market trading hours?
+  # When enabled, each market is checked independently:
+  #   CN: 9:30-15:00 CST  |  US: 9:30-16:00 ET
+  # Markets outside trading hours are skipped; open markets still refresh.
   market_hours_only: false
 
 # CORS settings (allowed origins for frontend dev server)

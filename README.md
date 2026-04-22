@@ -186,7 +186,7 @@ database:
 # Background scheduler settings
 scheduler:
   refresh_interval_seconds: 30    # 10 ~ 300 recommended
-  market_hours_only: false        # skip fetches outside 9:30-15:00 CST
+  market_hours_only: false        # skip fetches for markets outside trading hours
 
 # CORS settings (for frontend dev server)
 cors:
@@ -206,7 +206,7 @@ server:
 |---------|------|---------|-------------|
 | `database.url` | string | `sqlite+aiosqlite:///./stocktracker.db` | SQLAlchemy async database URL |
 | `scheduler.refresh_interval_seconds` | int | `30` | Seconds between data refresh cycles (min: 10) |
-| `scheduler.market_hours_only` | bool | `false` | Only fetch during A-share trading hours |
+| `scheduler.market_hours_only` | bool | `false` | Only fetch during each market's trading hours (CN 9:30-15:00 CST, US 9:30-16:00 ET) |
 | `cors.origins` | list | `["http://localhost:5173"]` | Allowed CORS origins for dev |
 | `server.host` | string | `0.0.0.0` | Server bind address |
 | `server.port` | int | `8000` | Server listen port |

@@ -28,6 +28,7 @@ function App() {
     addStock,
     removeStock,
     triggerBackendRefresh,
+    updateConfig,
     setPollInterval,
   } = useStocks();
 
@@ -45,6 +46,7 @@ function App() {
         onRefresh={triggerBackendRefresh}
         onAddStock={() => setModalOpen(true)}
         onPollIntervalChange={setPollInterval}
+        onUpdateConfig={updateConfig}
       />
 
       {/* ── Main Content ── */}
