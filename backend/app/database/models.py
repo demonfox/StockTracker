@@ -7,7 +7,6 @@ US stock markets. The ``market`` column distinguishes between "CN" and
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -44,7 +43,7 @@ class Stock(Base):
     symbol: Mapped[str] = mapped_column(
         String(10), nullable=False, comment="Stock code, e.g. 600519 or AAPL"
     )
-    name: Mapped[Optional[str]] = mapped_column(
+    name: Mapped[str | None] = mapped_column(
         String(50), nullable=True, comment="Stock name, e.g. 贵州茅台 / Apple Inc."
     )
     market: Mapped[str] = mapped_column(
@@ -53,72 +52,72 @@ class Stock(Base):
     )
 
     # ── Price data ────────────────────────────────────────────────────
-    current_price: Mapped[Optional[float]] = mapped_column(
+    current_price: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Latest / real-time price"
     )
-    open_price: Mapped[Optional[float]] = mapped_column(
+    open_price: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Today's opening price"
     )
-    high_price: Mapped[Optional[float]] = mapped_column(
+    high_price: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Today's highest price"
     )
-    low_price: Mapped[Optional[float]] = mapped_column(
+    low_price: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Today's lowest price"
     )
-    close_price: Mapped[Optional[float]] = mapped_column(
+    close_price: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Previous close (yesterday)"
     )
 
     # ── Volume & turnover ─────────────────────────────────────────────
-    volume: Mapped[Optional[int]] = mapped_column(
+    volume: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="Trading volume (shares)"
     )
-    turnover: Mapped[Optional[float]] = mapped_column(
+    turnover: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Trading turnover (CNY)"
     )
-    turnover_rate: Mapped[Optional[float]] = mapped_column(
+    turnover_rate: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Turnover rate (%)"
     )
 
     # ── Change metrics ────────────────────────────────────────────────
-    change_amount: Mapped[Optional[float]] = mapped_column(
+    change_amount: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Price change amount"
     )
-    change_percent: Mapped[Optional[float]] = mapped_column(
+    change_percent: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Price change percentage (%)"
     )
-    amplitude: Mapped[Optional[float]] = mapped_column(
+    amplitude: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Price amplitude (%)"
     )
 
     # ── Fundamentals ──────────────────────────────────────────────────
-    market_cap: Mapped[Optional[float]] = mapped_column(
+    market_cap: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Total market capitalization (CNY)"
     )
-    circulating_market_cap: Mapped[Optional[float]] = mapped_column(
+    circulating_market_cap: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Circulating market cap (CNY)"
     )
-    pe_ratio: Mapped[Optional[float]] = mapped_column(
+    pe_ratio: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Price-to-Earnings ratio (dynamic)"
     )
-    pb_ratio: Mapped[Optional[float]] = mapped_column(
+    pb_ratio: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Price-to-Book ratio"
     )
 
     # ── 52-week range ─────────────────────────────────────────────────
-    high_52w: Mapped[Optional[float]] = mapped_column(
+    high_52w: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="52-week high price"
     )
-    low_52w: Mapped[Optional[float]] = mapped_column(
+    low_52w: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="52-week low price"
     )
 
     # ── Timestamps ────────────────────────────────────────────────────
-    last_trade_time: Mapped[Optional[datetime]] = mapped_column(
+    last_trade_time: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="Timestamp of the last market trade for this ticker"
     )
-    updated_at: Mapped[Optional[datetime]] = mapped_column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, onupdate=func.now(),
         comment="Last data update time"
     )
