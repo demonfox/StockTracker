@@ -1,10 +1,10 @@
 """
-AkShare stock data fetching service for StockTracker.
+Stock data fetching service for StockTracker.
 
 Supports both China A-share and US equity markets using **per-symbol**
 queries to avoid downloading the entire market each refresh:
-  - CN: EastMoney push API (realtime per-symbol) / stock_zh_a_hist (fallback)
-  - US: EastMoney push API (realtime per-symbol) / stock_us_hist  (fallback)
+  - CN: EastMoney push API (realtime) / Tencent Finance K-line (fallback)
+  - US: EastMoney push API (realtime) / stock_us_hist (fallback)
 """
 
 import logging
@@ -17,6 +17,9 @@ import pandas as pd
 from app.services.eastmoney_api import (  # pyright: ignore[reportImplicitRelativeImport]
     fetch_cn_stock_quote,
     fetch_us_stock_quote,
+)
+from app.services.tencent_api import (  # pyright: ignore[reportImplicitRelativeImport]
+    fetch_cn_stock_kline,
 )
 
 logger = logging.getLogger(__name__)
@@ -115,51 +118,20 @@ def fetch_cn_stock_realtime(symbol: str) -> dict[str, Any] | None:
 
 def fetch_cn_stock_by_hist(symbol: str) -> dict[str, Any] | None:
     """
-    Fallback fetcher for a single CN stock: latest daily K-line.
+    Fallback fetcher for a single CN stock via Tencent Finance K-line API.
 
-    Used when stock_bid_ask_em fails (e.g. outside trading hours).
+    Used when the primary EastMoney push2 API fails (e.g. outside trading
+    hours).  Delegates to :func:`tencent_api.fetch_cn_stock_kline` which
+    returns a data dict whose keys match ``fetch_cn_stock_realtime``.
 
     Args:
         symbol: 6-digit A-share code, e.g. "600519".
 
     Returns:
-        Data dict or None on failure.
+        Data dict compatible with ``fetch_cn_stock_realtime``, or *None*
+        on failure.
     """
-    try:
-        df: pd.DataFrame = ak.stock_zh_a_hist(
-            symbol=symbol,
-            period="daily",
-            adjust="qfq",
-        )
-    except Exception as e:
-        logger.warning("stock_zh_a_hist failed for %s: %s", symbol, e)
-        return None
-
-    if df is None or df.empty:
-        logger.warning("No historical data returned for CN/%s.", symbol)
-        return None
-
-    row = df.iloc[-1]
-    return {
-        "symbol": symbol,
-        "name": None,
-        "current_price": _safe_float(row.get("收盘")),
-        "open_price": _safe_float(row.get("开盘")),
-        "high_price": _safe_float(row.get("最高")),
-        "low_price": _safe_float(row.get("最低")),
-        "close_price": _safe_float(row.get("收盘")),
-        "volume": _safe_int(row.get("成交量")),
-        "turnover": _safe_float(row.get("成交额")),
-        "change_amount": _safe_float(row.get("涨跌额")),
-        "change_percent": _safe_float(row.get("涨跌幅")),
-        "amplitude": _safe_float(row.get("振幅")),
-        "turnover_rate": _safe_float(row.get("换手率")),
-        "market_cap": None,
-        "circulating_market_cap": None,
-        "pe_ratio": None,
-        "pb_ratio": None,
-        "last_trade_time": None,
-    }
+    return fetch_cn_stock_kline(symbol)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -314,7 +286,7 @@ def _fetch_cn_symbols(symbols: list[str]) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
 
     for symbol in symbols:
-        data = fetch_cn_stock_realtime(symbol)
+        data = fetch_cn_stock_by_hist(symbol)
         if data is not None:
             result[symbol] = data
             continue
