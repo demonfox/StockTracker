@@ -8,11 +8,11 @@ queries to avoid downloading the entire market each refresh:
 """
 
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import akshare as ak
-import pandas as pd
 
 from app.services.eastmoney_api import (  # pyright: ignore[reportImplicitRelativeImport]
     fetch_cn_stock_quote,
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def _safe_float(value: Any) -> float | None:
     """Convert a value to float, returning None for invalid/missing data."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
     try:
         return float(value)
@@ -37,7 +37,7 @@ def _safe_float(value: Any) -> float | None:
 
 def _safe_int(value: Any) -> int | None:
     """Convert a value to int, returning None for invalid/missing data."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
     try:
         return int(value)
@@ -207,7 +207,7 @@ def fetch_us_stock_by_hist(ticker: str) -> dict[str, Any] | None:
     for prefix in ("105", "106", "107"):
         code = f"{prefix}.{ticker}"
         try:
-            df: pd.DataFrame = ak.stock_us_hist(symbol=code)
+            df = ak.stock_us_hist(symbol=code)
             if df is None or df.empty:
                 continue
 
