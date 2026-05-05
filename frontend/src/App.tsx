@@ -99,6 +99,15 @@ function App() {
           >
             AkShare
           </a>
+          /
+          <a
+            href="https://web.ifzq.gtimg.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary/70 hover:text-primary transition-colors"
+          >
+            Tencent Finance
+          </a>
           {" · 仅供参考，不构成投资建议"}
         </p>
         <a

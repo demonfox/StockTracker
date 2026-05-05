@@ -518,7 +518,7 @@ export default function StockTable({
       {/* Footer */}
       <div className="px-5 py-2.5 border-t border-gray-100 flex items-center justify-between">
         <p className="text-[10px] text-content-muted">
-          数据来源: AkShare · 仅供参考，不构成投资建议
+          数据来源: AkShare/Tencent Finance · 仅供参考，不构成投资建议
         </p>
         <p className="text-[10px] text-content-muted tabular-nums">
           v1.0.0

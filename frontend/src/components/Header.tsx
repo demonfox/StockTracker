@@ -134,7 +134,7 @@ export default function Header({
                 StockTracker
               </h1>
               <p className="text-[10px] text-content-muted leading-none tracking-wider uppercase">
-                A股实时追踪
+                全球股市实时追踪
               </p>
             </div>
           </div>
