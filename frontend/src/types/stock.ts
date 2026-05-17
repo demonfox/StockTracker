@@ -64,12 +64,19 @@ export type MarketType = "CN" | "US";
 
 // ── Scheduler & Config Types ─────────────────────────────────────────
 
+/** Real-time open/closed status for each market */
+export interface MarketStatusInfo {
+  cn_open: boolean;
+  us_open: boolean;
+}
+
 /** Response from GET /api/scheduler/status */
 export interface SchedulerStatus {
   running: boolean;
   refresh_interval_seconds: number;
   market_hours_only: boolean;
   next_run: string | null;
+  market_status: MarketStatusInfo;
 }
 
 /** Request body for PATCH /api/config */

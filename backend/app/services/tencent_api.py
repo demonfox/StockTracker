@@ -102,10 +102,8 @@ def _parse_qt(
     """
     Parse a Tencent ``qt`` quote array into a standardised data dict.
 
-    The returned dict uses the same field names as
-    ``stock_fetcher.fetch_cn_stock_realtime`` /
-    ``stock_fetcher.fetch_us_stock_realtime`` so it can serve as a
-    drop-in fallback.
+    The returned dict uses standardised field names that map directly
+    to the ``Stock`` ORM model columns in ``database/models.py``.
 
     Args:
         symbol: Stock symbol (e.g. ``"600519"`` or ``"AAPL"``).
@@ -191,9 +189,8 @@ def fetch_cn_stock_kline(
                 (default ``1`` — latest day only).
 
     Returns:
-        A data dict whose keys match ``fetch_cn_stock_realtime`` in
-        ``stock_fetcher.py`` (sourced from the ``qt`` quote array),
-        or *None* on any failure.
+        A data dict whose keys map to ``Stock`` model columns
+        (sourced from the ``qt`` quote array), or *None* on any failure.
     """
     prefix = "sh" if symbol.startswith("6") else "sz"
     tencent_symbol = f"{prefix}{symbol}"
@@ -239,9 +236,8 @@ def fetch_us_stock_kline(
                 (default ``1`` — latest day only).
 
     Returns:
-        A data dict whose keys match ``fetch_us_stock_realtime`` in
-        ``stock_fetcher.py`` (sourced from the ``qt`` quote array),
-        or *None* on any failure.
+        A data dict whose keys map to ``Stock`` model columns
+        (sourced from the ``qt`` quote array), or *None* on any failure.
     """
     tencent_symbol = f"us{ticker.upper()}"
 

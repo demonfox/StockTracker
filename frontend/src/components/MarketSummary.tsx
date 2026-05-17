@@ -3,7 +3,7 @@
  *
  * Shows:
  * - Total tracked stocks count
- * - Market status (trading / closed)
+ * - Market status (CN + US, trading / closed)
  * - Last refresh timestamp with countdown to next
  * - Quick "Refresh Now" action
  */
@@ -45,16 +45,8 @@ export default function MarketSummary({
     return () => clearInterval(t);
   }, []);
 
-  const isMarketOpen = () => {
-    const h = now.getHours();
-    const m = now.getMinutes();
-    const mins = h * 60 + m;
-    const day = now.getDay();
-    if (day === 0 || day === 6) return false;
-    return (mins >= 570 && mins <= 690) || (mins >= 780 && mins <= 900);
-  };
-
-  const marketOpen = isMarketOpen();
+  const cnOpen = schedulerStatus?.market_status?.cn_open ?? false;
+  const usOpen = schedulerStatus?.market_status?.us_open ?? false;
 
   const nextRefreshIn = () => {
     if (!lastRefresh || pollInterval <= 0) return "—";
@@ -88,32 +80,63 @@ export default function MarketSummary({
         </p>
       </div>
 
-      {/* Market status */}
+      {/* Market status — dual market */}
       <div className="stat-card group">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-medium text-content-muted uppercase tracking-wider">
               市场状态
             </p>
-            <p className={`text-2xl font-bold mt-1 ${
-              marketOpen ? "text-emerald-600" : "text-content-secondary"
-            }`}>
-              {marketOpen ? "交易中" : "已休市"}
-            </p>
+            <div className="mt-1.5 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                    cnOpen ? "bg-emerald-500 animate-pulse" : "bg-gray-400"
+                  }`}
+                />
+                <span className={`text-xs font-semibold ${
+                  cnOpen ? "text-emerald-600" : "text-content-secondary"
+                }`}>
+                  沪深A股
+                </span>
+                <span className={`text-[10px] ${
+                  cnOpen ? "text-emerald-600" : "text-content-muted"
+                }`}>
+                  {cnOpen ? "交易中" : "已休市"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                    usOpen ? "bg-blue-500 animate-pulse" : "bg-gray-400"
+                  }`}
+                />
+                <span className={`text-xs font-semibold ${
+                  usOpen ? "text-blue-600" : "text-content-secondary"
+                }`}>
+                  美股
+                </span>
+                <span className={`text-[10px] ${
+                  usOpen ? "text-blue-600" : "text-content-muted"
+                }`}>
+                  {usOpen ? "交易中" : "已休市"}
+                </span>
+              </div>
+            </div>
           </div>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center
                            transition-colors duration-300
-                           ${marketOpen
+                           ${(cnOpen || usOpen)
                              ? "bg-emerald-50 group-hover:bg-emerald-100"
                              : "bg-gray-100 group-hover:bg-gray-150"
                            }`}>
             <TrendingUp className={`w-5 h-5 ${
-              marketOpen ? "text-emerald-600" : "text-gray-400"
+              (cnOpen || usOpen) ? "text-emerald-600" : "text-gray-400"
             }`} />
           </div>
         </div>
         <p className="text-[10px] text-content-muted mt-2">
-          沪深A股 · {now.toLocaleDateString("zh-CN", {
+          {now.toLocaleDateString("zh-CN", {
             weekday: "short",
             month: "numeric",
             day: "numeric",
@@ -166,7 +189,7 @@ export default function MarketSummary({
               数据源
             </p>
             <p className="text-2xl font-bold text-primary mt-1">
-              {refreshing ? "刷新中" : "AkShare"}
+              {refreshing ? "刷新中" : "Tencent"}
             </p>
           </div>
           <div className={`w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center

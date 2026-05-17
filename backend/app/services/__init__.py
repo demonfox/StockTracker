@@ -1,7 +1,7 @@
 """
 Business logic services for StockTracker.
 
-- stock_fetcher: Stock data retrieval (EastMoney + Tencent Finance)
+- stock_fetcher: Stock data retrieval (Tencent Finance API)
 - scheduler: Background refresh job management
 """
 

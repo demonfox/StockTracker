@@ -2,208 +2,26 @@
 Stock data fetching service for StockTracker.
 
 Supports both China A-share and US equity markets using **per-symbol**
-queries to avoid downloading the entire market each refresh:
-  - CN: EastMoney push API (realtime) / Tencent Finance K-line (fallback)
-  - US: EastMoney push API (realtime) / Tencent Finance K-line (fallback)
+queries via the Tencent Finance K-line / quote API.
+
+The Tencent endpoint returns both daily K-line history **and** a rich
+real-time ``qt`` quote array in a single request, so there is no need
+for separate "realtime" vs "history" fetch modes.
+
+Data source:
+  - CN: Tencent Finance K-line API (``tencent_api.fetch_cn_stock_kline``)
+  - US: Tencent Finance K-line API (``tencent_api.fetch_us_stock_kline``)
 """
 
 import logging
-import math
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.services.eastmoney_api import (  # pyright: ignore[reportImplicitRelativeImport]
-    fetch_cn_stock_quote,
-    fetch_us_stock_quote,
-)
 from app.services.tencent_api import (  # pyright: ignore[reportImplicitRelativeImport]
     fetch_cn_stock_kline,
     fetch_us_stock_kline,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_float(value: Any) -> float | None:
-    """Convert a value to float, returning None for invalid/missing data."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
-        return None
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
-def _safe_int(value: Any) -> int | None:
-    """Convert a value to int, returning None for invalid/missing data."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
-        return None
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return None
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# CN Stock Fetchers — per-symbol strategy
-# ═══════════════════════════════════════════════════════════════════════
-
-# Mapping from EastMoney push API Chinese item names → our DB field names.
-_BID_ASK_ITEM_MAP: dict[str, str] = {
-    "最新": "current_price",
-    "今开": "open_price",
-    "最高": "high_price",
-    "最低": "low_price",
-    "昨收": "close_price",
-    "总手": "volume",
-    "金额": "turnover",
-    "换手": "turnover_rate",
-    "涨跌": "change_amount",
-    "涨幅": "change_percent",
-}
-
-
-def fetch_cn_stock_realtime(symbol: str) -> dict[str, Any] | None:
-    """
-    Fetch realtime quote for a single A-share stock from EastMoney.
-
-    Uses ``eastmoney_api.fetch_cn_stock_quote`` which makes a fresh TCP
-    connection per call (``Connection: close``), completely avoiding
-    the stale-connection-pool ``RemoteDisconnected`` errors that occur
-    with ``requests``/urllib3's default keep-alive behaviour.
-
-    Args:
-        symbol: 6-digit A-share code, e.g. "600519".
-
-    Returns:
-        Data dict or None on failure.
-    """
-    lookup = fetch_cn_stock_quote(symbol)
-    if not lookup:
-        return None
-
-    data: dict[str, Any] = {"symbol": symbol, "name": lookup.get("名称")}
-    for cn_key, db_field in _BID_ASK_ITEM_MAP.items():
-        raw = lookup.get(cn_key)
-        if db_field == "volume":
-            data[db_field] = _safe_int(raw)
-        else:
-            data[db_field] = _safe_float(raw)
-
-    # Fields not directly in _BID_ASK_ITEM_MAP but available from the API
-    data["amplitude"] = None
-    data["market_cap"] = _safe_float(lookup.get("总市值"))
-    data["circulating_market_cap"] = _safe_float(lookup.get("流通市值"))
-    data["pe_ratio"] = _safe_float(lookup.get("市盈率"))
-    data["pb_ratio"] = _safe_float(lookup.get("市净率"))
-
-    # Last trade timestamp (f86): Unix epoch → market-local naive datetime.
-    # CN stocks use CST (UTC+8). We store the naive local time because
-    # SQLite drops timezone info; the frontend knows to display CN times
-    # in Asia/Shanghai.
-    _CST = timezone(timedelta(hours=8))
-    raw_ts = lookup.get("最新成交时间")
-    if raw_ts is not None:
-        try:
-            aware_dt = datetime.fromtimestamp(int(raw_ts), tz=_CST)
-            data["last_trade_time"] = aware_dt.replace(tzinfo=None)
-        except (ValueError, TypeError, OSError):
-            data["last_trade_time"] = None
-    else:
-        data["last_trade_time"] = None
-
-    return data
-
-
-def fetch_cn_stock_by_hist(symbol: str) -> dict[str, Any] | None:
-    """
-    Fallback fetcher for a single CN stock via Tencent Finance K-line API.
-
-    Used when the primary EastMoney push2 API fails (e.g. outside trading
-    hours).  Delegates to :func:`tencent_api.fetch_cn_stock_kline` which
-    returns a data dict whose keys match ``fetch_cn_stock_realtime``.
-
-    Args:
-        symbol: 6-digit A-share code, e.g. "600519".
-
-    Returns:
-        Data dict compatible with ``fetch_cn_stock_realtime``, or *None*
-        on failure.
-    """
-    return fetch_cn_stock_kline(symbol)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# US Stock Fetchers — per-symbol strategy
-# ═══════════════════════════════════════════════════════════════════════
-
-# US Eastern Time (ET) is UTC-5 (EST) / UTC-4 (EDT).
-# We use UTC-4 as a fixed offset; the frontend labels it "ET" generically.
-# For exact DST-aware conversion, consider ``zoneinfo`` (Python 3.9+).
-_ET = timezone(timedelta(hours=-4))
-
-
-def fetch_us_stock_realtime(ticker: str) -> dict[str, Any] | None:
-    """
-    Fetch realtime quote for a single US stock from EastMoney push2.
-
-    Uses ``eastmoney_api.fetch_us_stock_quote`` which probes NASDAQ /
-    NYSE / AMEX exchange prefixes automatically.
-
-    Args:
-        ticker: US ticker, e.g. "AAPL".
-
-    Returns:
-        Data dict or None on failure.
-    """
-    lookup = fetch_us_stock_quote(ticker)
-    if not lookup:
-        return None
-
-    data: dict[str, Any] = {"symbol": ticker, "name": lookup.get("名称")}
-    for cn_key, db_field in _BID_ASK_ITEM_MAP.items():
-        raw = lookup.get(cn_key)
-        if db_field == "volume":
-            data[db_field] = _safe_int(raw)
-        else:
-            data[db_field] = _safe_float(raw)
-
-    data["amplitude"] = None
-    data["market_cap"] = _safe_float(lookup.get("总市值"))
-    data["circulating_market_cap"] = _safe_float(lookup.get("流通市值"))
-    data["pe_ratio"] = _safe_float(lookup.get("市盈率"))
-    data["pb_ratio"] = _safe_float(lookup.get("市净率"))
-
-    # Last trade timestamp → naive ET datetime (see CN counterpart for rationale).
-    raw_ts = lookup.get("最新成交时间")
-    if raw_ts is not None:
-        try:
-            aware_dt = datetime.fromtimestamp(int(raw_ts), tz=_ET)
-            data["last_trade_time"] = aware_dt.replace(tzinfo=None)
-        except (ValueError, TypeError, OSError):
-            data["last_trade_time"] = None
-    else:
-        data["last_trade_time"] = None
-
-    return data
-
-
-def fetch_us_stock_by_hist(ticker: str) -> dict[str, Any] | None:
-    """
-    Fallback fetcher for a single US stock via Tencent Finance K-line API.
-
-    Used when the primary EastMoney push2 API fails.  Delegates to
-    :func:`tencent_api.fetch_us_stock_kline` which returns a data dict
-    whose keys match ``fetch_us_stock_realtime``.
-
-    Args:
-        ticker: US ticker, e.g. "AAPL".
-
-    Returns:
-        Data dict compatible with ``fetch_us_stock_realtime``, or *None*
-        on failure.
-    """
-    return fetch_us_stock_kline(ticker)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -216,22 +34,15 @@ def fetch_stocks_by_symbols(
     market: str = "CN",
 ) -> dict[str, dict[str, Any]]:
     """
-    Fetch data for specific symbols using per-symbol APIs.
-
-    Strategy (per market):
-        CN:
-            1. Try EastMoney push API per symbol (realtime, ~100 ms each).
-            2. Fallback per symbol: Tencent Finance K-line API.
-        US:
-            1. Try EastMoney push API per symbol (realtime).
-            2. Fallback per symbol: Tencent Finance K-line API.
+    Fetch latest quote data for the given symbols via Tencent Finance.
 
     Args:
-        symbols: List of stock symbols (e.g. ["600519"] or ["AAPL"]).
-        market:  "CN" or "US".
+        symbols: List of stock symbols (e.g. ``["600519"]`` or ``["AAPL"]``).
+        market:  ``"CN"`` or ``"US"``.
 
     Returns:
-        Dict mapping symbol -> data dict.
+        Dict mapping symbol → data dict.  Missing symbols (API failure)
+        are simply omitted from the result.
     """
     if not symbols:
         return {}
@@ -242,24 +53,16 @@ def fetch_stocks_by_symbols(
     return _fetch_cn_symbols(symbols)
 
 
+# ── Per-market helpers ────────────────────────────────────────────────
+
+
 def _fetch_cn_symbols(symbols: list[str]) -> dict[str, dict[str, Any]]:
-    """
-    Fetch CN stocks one-by-one: realtime bid_ask → hist fallback.
-    """
-    logger.info("Fetching realtime data for %d CN symbol(s)...", len(symbols))
+    """Fetch CN stocks one-by-one via Tencent Finance K-line API."""
+    logger.info("Fetching data for %d CN symbol(s) via Tencent...", len(symbols))
     result: dict[str, dict[str, Any]] = {}
 
     for symbol in symbols:
-        data = fetch_cn_stock_realtime(symbol)
-        if data is not None:
-            result[symbol] = data
-            continue
-
-        # Realtime failed — fall back to daily hist
-        logger.info(
-            "CN realtime failed for %s, falling back to hist.", symbol
-        )
-        data = fetch_cn_stock_by_hist(symbol)
+        data = fetch_cn_stock_kline(symbol)
         if data is not None:
             result[symbol] = data
 
@@ -272,23 +75,12 @@ def _fetch_cn_symbols(symbols: list[str]) -> dict[str, dict[str, Any]]:
 
 
 def _fetch_us_symbols(symbols: list[str]) -> dict[str, dict[str, Any]]:
-    """
-    Fetch US stocks one-by-one: realtime push2 → daily hist fallback.
-    """
-    logger.info("Fetching realtime data for %d US symbol(s)...", len(symbols))
+    """Fetch US stocks one-by-one via Tencent Finance K-line API."""
+    logger.info("Fetching data for %d US symbol(s) via Tencent...", len(symbols))
     result: dict[str, dict[str, Any]] = {}
 
     for ticker in symbols:
-        data = fetch_us_stock_realtime(ticker)
-        if data is not None:
-            result[ticker] = data
-            continue
-
-        # Realtime failed — fall back to daily hist (may also fail)
-        logger.info(
-            "US realtime failed for %s, falling back to hist.", ticker,
-        )
-        data = fetch_us_stock_by_hist(ticker)
+        data = fetch_us_stock_kline(ticker)
         if data is not None:
             result[ticker] = data
 

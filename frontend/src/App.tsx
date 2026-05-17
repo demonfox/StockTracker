@@ -92,15 +92,6 @@ function App() {
         <p className="text-[11px] text-content-muted">
           数据来源:{" "}
           <a
-            href="https://github.com/akfamily/akshare"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary/70 hover:text-primary transition-colors"
-          >
-            AkShare
-          </a>
-          /
-          <a
             href="https://web.ifzq.gtimg.cn"
             target="_blank"
             rel="noopener noreferrer"

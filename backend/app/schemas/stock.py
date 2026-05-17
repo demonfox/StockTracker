@@ -92,12 +92,19 @@ class StockListResponse(BaseModel):
     stocks: list[StockResponse] = Field(description="List of stock records")
 
 
+class MarketStatusInfo(BaseModel):
+    """Real-time open/closed status for each supported market."""
+    cn_open: bool
+    us_open: bool
+
+
 class SchedulerStatusResponse(BaseModel):
     """Current scheduler status information."""
     running: bool
     refresh_interval_seconds: int
     market_hours_only: bool
     next_run: str | None = None
+    market_status: MarketStatusInfo
 
 
 class MessageResponse(BaseModel):

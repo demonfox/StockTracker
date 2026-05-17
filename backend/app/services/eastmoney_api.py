@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Direct HTTP client for EastMoney's push API.
+**DEPRECATED** — This module is no longer used in production.
 
-Uses Python's stdlib ``urllib.request`` which sends ``Connection: close``
-by default, avoiding the stale-connection-pool problem that plagues
-``requests``/``urllib3`` when talking to EastMoney's servers.
+The application has switched to Tencent Finance as the sole data source
+(see ``tencent_api.py``).  This file is kept for reference in case we
+need to revisit EastMoney's push2 API in the future.
 
-This module is intentionally decoupled from AkShare so that we have
-full control over connection lifecycle, error handling and retries.
+Original description:
+    Direct HTTP client for EastMoney's push API.
+    Uses Python's stdlib ``urllib.request`` which sends ``Connection: close``
+    by default, avoiding the stale-connection-pool problem that plagues
+    ``requests``/``urllib3`` when talking to EastMoney's servers.
 """
 
 import json

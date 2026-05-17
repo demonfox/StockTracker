@@ -74,7 +74,7 @@ async def add_stock_endpoint(
     Add a new stock ticker to the tracking list.
 
     After adding, immediately attempts to fetch the stock's current data
-    from AkShare so the user gets immediate feedback.
+    from Tencent Finance so the user gets immediate feedback.
     """
     symbol = payload.symbol.strip()
     market = payload.market.strip().upper()
@@ -88,7 +88,7 @@ async def add_stock_endpoint(
         )
 
     # Attempt immediate data fetch for the new stock
-    # Run in thread pool since AkShare is synchronous
+    # Run in thread pool since Tencent Finance fetcher is synchronous
     try:
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(

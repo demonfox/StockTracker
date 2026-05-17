@@ -3,7 +3,7 @@ Background scheduler service for StockTracker.
 
 Manages an APScheduler AsyncIOScheduler that periodically:
 1. Reads tracked tickers from the database
-2. Fetches latest market data via AkShare
+2. Fetches latest market data via Tencent Finance API
 3. Batch-updates the database with fresh data
 
 The scheduler respects the configurable refresh interval and
@@ -106,8 +106,8 @@ async def refresh_stock_data() -> None:
     The main scheduled job: fetch latest data and update the database.
 
     This function is called by APScheduler at the configured interval.
-    It runs AkShare fetch in a thread pool to avoid blocking the event loop
-    (AkShare uses synchronous HTTP requests internally).
+    It runs the Tencent Finance fetch in a thread pool to avoid blocking
+    the event loop (the fetcher uses synchronous HTTP requests internally).
 
     Symbols are grouped by market so each group hits the correct API.
     When ``market_hours_only`` is enabled, only markets whose exchanges
@@ -155,7 +155,7 @@ async def refresh_stock_data() -> None:
             len(market_groups),
         )
 
-        # Step 2: Fetch from AkShare per market (run in thread pool)
+        # Step 2: Fetch from Tencent Finance per market (run in thread pool)
         loop = asyncio.get_event_loop()
         all_stock_data: dict[str, dict] = {}
 
@@ -170,7 +170,7 @@ async def refresh_stock_data() -> None:
                 all_stock_data.update(data)
 
         if not all_stock_data:
-            logger.warning("No data returned from AkShare — skipping DB update.")
+            logger.warning("No data returned from Tencent Finance — skipping DB update.")
             return
 
         # Step 3: Batch update the database
@@ -266,13 +266,21 @@ def update_interval(new_interval_seconds: int) -> None:
 def get_scheduler_status() -> dict:
     """
     Return the current scheduler status for the API.
+
+    Includes real-time market open/closed state for both CN and US markets.
     """
+    market_status = {
+        "cn_open": is_cn_market_hours(),
+        "us_open": is_us_market_hours(),
+    }
+
     if _scheduler is None:
         return {
             "running": False,
             "refresh_interval_seconds": settings.scheduler.refresh_interval_seconds,
             "market_hours_only": settings.scheduler.market_hours_only,
             "next_run": None,
+            "market_status": market_status,
         }
 
     job = _scheduler.get_job(JOB_ID)
@@ -285,4 +293,5 @@ def get_scheduler_status() -> dict:
         "refresh_interval_seconds": settings.scheduler.refresh_interval_seconds,
         "market_hours_only": settings.scheduler.market_hours_only,
         "next_run": next_run,
+        "market_status": market_status,
     }

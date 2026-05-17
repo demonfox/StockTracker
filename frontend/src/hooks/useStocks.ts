@@ -151,7 +151,7 @@ export function useStocks(
     await loadStocks();
   }, [loadStocks]);
 
-  // ── Trigger backend refresh (re-fetch from AkShare) ──────────────
+  // ── Trigger backend refresh (re-fetch from Tencent Finance) ──────
 
   const triggerBackendRefresh = useCallback(async (): Promise<boolean> => {
     setError(null);

@@ -29,7 +29,7 @@ class Stock(Base):
     """
     Represents a tracked stock ticker and its latest market data.
 
-    Fields are populated by the background scheduler via AkShare.
+    Fields are populated by the background scheduler via Tencent Finance API.
     Only `symbol` is required when adding a new ticker; all other
     data fields are nullable and filled in on the next refresh cycle.
     """

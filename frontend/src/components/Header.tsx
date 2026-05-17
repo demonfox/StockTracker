@@ -10,7 +10,7 @@
  * - Settings dropdown for poll interval configuration
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   RefreshCw,
   Plus,
@@ -79,16 +79,8 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isMarketHours = useCallback(() => {
-    const h = currentTime.getHours();
-    const m = currentTime.getMinutes();
-    const mins = h * 60 + m;
-    const day = currentTime.getDay();
-    if (day === 0 || day === 6) return false;
-    return (mins >= 570 && mins <= 690) || (mins >= 780 && mins <= 900);
-  }, [currentTime]);
-
-  const marketOpen = isMarketHours();
+  const cnOpen = schedulerStatus?.market_status?.cn_open ?? false;
+  const usOpen = schedulerStatus?.market_status?.us_open ?? false;
 
   const formatRefreshTime = () => {
     if (!lastRefresh) return "暂无数据";
@@ -143,20 +135,35 @@ export default function Header({
           <div className="hidden sm:block w-px h-8 bg-gray-200" />
 
           {/* Market Status */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2">
             <div
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-                ${marketOpen
+                ${cnOpen
                   ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                   : "bg-gray-100 text-gray-500 ring-1 ring-gray-200"
                 }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  marketOpen ? "bg-emerald-500 animate-pulse" : "bg-gray-400"
+                  cnOpen ? "bg-emerald-500 animate-pulse" : "bg-gray-400"
                 }`}
               />
-              {marketOpen ? "交易中" : "已休市"}
+              A股 {cnOpen ? "交易中" : "休市"}
+            </div>
+
+            <div
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                ${usOpen
+                  ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                  : "bg-gray-100 text-gray-500 ring-1 ring-gray-200"
+                }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  usOpen ? "bg-blue-500 animate-pulse" : "bg-gray-400"
+                }`}
+              />
+              美股 {usOpen ? "交易中" : "休市"}
             </div>
 
             {schedulerStatus && (
@@ -192,7 +199,7 @@ export default function Header({
                        active:bg-gray-100
                        disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all duration-200 cursor-pointer"
-            title="从AkShare拉取最新数据"
+            title="从腾讯财经拉取最新数据"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`}
