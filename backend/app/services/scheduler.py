@@ -84,17 +84,42 @@ def is_us_market_hours() -> bool:
     return market_open <= t <= market_close
 
 
+def is_hk_market_hours() -> bool:
+    """
+    Check if the current time falls within HK stock trading hours.
+
+    Trading hours: 9:30 - 12:00 and 13:00 - 16:00 HKT (UTC+8), Mon-Fri.
+    HK uses the same timezone as mainland China (CST / HKT).
+    """
+    now = datetime.now(CHINA_TZ)
+
+    if now.weekday() >= 5:
+        return False
+
+    t = now.hour * 60 + now.minute
+
+    morning_open = 9 * 60 + 30    # 09:30 = 570
+    morning_close = 12 * 60       # 12:00 = 720
+    afternoon_open = 13 * 60      # 13:00 = 780
+    afternoon_close = 16 * 60     # 16:00 = 960
+
+    return (morning_open <= t <= morning_close
+            or afternoon_open <= t <= afternoon_close)
+
+
 def is_market_open(market: str) -> bool:
     """
     Check if the given market is currently in trading hours.
 
     Args:
-        market: ``"CN"`` or ``"US"``.
+        market: ``"CN"``, ``"US"``, or ``"HK"``.
     """
     if market == "CN":
         return is_cn_market_hours()
     if market == "US":
         return is_us_market_hours()
+    if market == "HK":
+        return is_hk_market_hours()
     # Unknown market — default to open so we don't silently skip it
     return True
 
@@ -267,11 +292,12 @@ def get_scheduler_status() -> dict:
     """
     Return the current scheduler status for the API.
 
-    Includes real-time market open/closed state for both CN and US markets.
+    Includes real-time market open/closed state for CN, US, and HK markets.
     """
     market_status = {
         "cn_open": is_cn_market_hours(),
         "us_open": is_us_market_hours(),
+        "hk_open": is_hk_market_hours(),
     }
 
     if _scheduler is None:

@@ -2,7 +2,7 @@
  * Modal dialog for adding a new stock ticker.
  *
  * Features:
- * - Market tab switch (A-share / US)
+ * - Market tab switch (A-share / HK / US)
  * - Symbol input with per-market validation
  * - Common stock quick-select chips per market
  * - Loading spinner during API call
@@ -48,6 +48,17 @@ const US_QUICK_PICKS = [
   { symbol: "NFLX", name: "Netflix" },
 ];
 
+const HK_QUICK_PICKS = [
+  { symbol: "00700", name: "腾讯控股" },
+  { symbol: "09988", name: "阿里巴巴" },
+  { symbol: "03690", name: "美团" },
+  { symbol: "01810", name: "小米集团" },
+  { symbol: "09618", name: "京东集团" },
+  { symbol: "00941", name: "中国移动" },
+  { symbol: "02318", name: "中国平安" },
+  { symbol: "01024", name: "快手" },
+];
+
 // ── Component ────────────────────────────────────────────────────────
 
 export default function AddStockModal({
@@ -63,7 +74,9 @@ export default function AddStockModal({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isCN = market === "CN";
-  const quickPicks = isCN ? CN_QUICK_PICKS : US_QUICK_PICKS;
+  const isHK = market === "HK";
+  const isUS = market === "US";
+  const quickPicks = isCN ? CN_QUICK_PICKS : isHK ? HK_QUICK_PICKS : US_QUICK_PICKS;
 
   // Auto-focus input on open
   useEffect(() => {
@@ -98,18 +111,24 @@ export default function AddStockModal({
     if (!trimmed) return "请输入股票代码";
     if (isCN) {
       if (!/^\d{6}$/.test(trimmed)) return "A股代码应为6位数字（如 600519）";
+    } else if (isHK) {
+      if (!/^\d{5}$/.test(trimmed)) return "港股代码应为5位数字（如 00700）";
     } else {
       if (!/^[A-Za-z]{1,5}$/.test(trimmed)) return "美股代码应为1-5位字母（如 AAPL）";
     }
     return null;
   };
 
-  const isSubmitDisabled = isCN ? symbol.length !== 6 : symbol.length < 1;
+  const isSubmitDisabled = isCN
+    ? symbol.length !== 6
+    : isHK
+      ? symbol.length !== 5
+      : symbol.length < 1;
 
   // ── Submit ───────────────────────────────────────────────────────
 
   const handleSubmit = useCallback(async () => {
-    const trimmed = isCN ? symbol.trim() : symbol.trim().toUpperCase();
+    const trimmed = isUS ? symbol.trim().toUpperCase() : symbol.trim();
     const err = validateSymbol(trimmed);
     if (err) {
       setError(err);
@@ -134,7 +153,7 @@ export default function AddStockModal({
     }
 
     setSubmitting(false);
-  }, [symbol, market, isCN, onAdd, onClose]);
+  }, [symbol, market, isUS, onAdd, onClose]);
 
   const handleQuickPick = useCallback(
     (sym: string) => {
@@ -149,6 +168,8 @@ export default function AddStockModal({
       let v = e.target.value;
       if (isCN) {
         v = v.replace(/\D/g, "").slice(0, 6);
+      } else if (isHK) {
+        v = v.replace(/\D/g, "").slice(0, 5);
       } else {
         v = v.replace(/[^A-Za-z]/g, "").slice(0, 5).toUpperCase();
       }
@@ -156,7 +177,7 @@ export default function AddStockModal({
       setError(null);
       setSuccess(null);
     },
-    [isCN],
+    [isCN, isHK],
   );
 
   if (!open) return null;
@@ -220,10 +241,22 @@ export default function AddStockModal({
               <span>A股</span>
             </button>
             <button
+              onClick={() => setMarket("HK")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium
+                          transition-all duration-200 cursor-pointer
+                          ${isHK
+                            ? "bg-white text-primary shadow-sm"
+                            : "text-content-muted hover:text-content-secondary"
+                          }`}
+            >
+              <span>🇭🇰</span>
+              <span>港股</span>
+            </button>
+            <button
               onClick={() => setMarket("US")}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium
                           transition-all duration-200 cursor-pointer
-                          ${!isCN
+                          ${isUS
                             ? "bg-white text-primary shadow-sm"
                             : "text-content-muted hover:text-content-secondary"
                           }`}
@@ -244,7 +277,7 @@ export default function AddStockModal({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !submitting) handleSubmit();
               }}
-              placeholder={isCN ? "输入股票代码，如 600519" : "输入股票代码，如 AAPL"}
+              placeholder={isCN ? "输入股票代码，如 600519" : isHK ? "输入股票代码，如 00700" : "输入股票代码，如 AAPL"}
               className="w-full h-12 pl-10 pr-4 rounded-xl text-sm font-mono
                          bg-surface-secondary border-0 ring-1 ring-gray-200
                          placeholder:text-content-muted/60
@@ -252,7 +285,7 @@ export default function AddStockModal({
                          transition-all duration-200"
               disabled={submitting}
               maxLength={isCN ? 6 : 5}
-              inputMode={isCN ? "numeric" : "text"}
+              inputMode={(isCN || isHK) ? "numeric" : "text"}
               autoComplete="off"
             />
             {symbol.length > 0 && (
@@ -281,7 +314,7 @@ export default function AddStockModal({
           {/* Quick picks */}
           <div className="mt-4">
             <p className="text-[10px] font-semibold text-content-muted uppercase tracking-wider mb-2">
-              {isCN ? "热门A股" : "热门美股"}
+              {isCN ? "热门A股" : isHK ? "热门港股" : "热门美股"}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {quickPicks.map((pick) => (

@@ -12,7 +12,7 @@ export interface Stock {
   id: number;
   symbol: string;
   name: string | null;
-  market: "CN" | "US";
+  market: "CN" | "US" | "HK";
 
   // Price
   current_price: number | null;
@@ -56,11 +56,11 @@ export interface StockListResponse {
 /** Request body for POST /api/stocks */
 export interface StockCreateRequest {
   symbol: string;
-  market: "CN" | "US";
+  market: "CN" | "US" | "HK";
 }
 
 /** Supported market type */
-export type MarketType = "CN" | "US";
+export type MarketType = "CN" | "US" | "HK";
 
 // ── Scheduler & Config Types ─────────────────────────────────────────
 
@@ -68,6 +68,7 @@ export type MarketType = "CN" | "US";
 export interface MarketStatusInfo {
   cn_open: boolean;
   us_open: boolean;
+  hk_open: boolean;
 }
 
 /** Response from GET /api/scheduler/status */

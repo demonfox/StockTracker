@@ -18,13 +18,19 @@ class StockCreate(BaseModel):
         ...,
         min_length=1,
         max_length=10,
-        description="Stock symbol code, e.g. '600519' for A-share or 'AAPL' for US",
-        examples=["600519", "000001", "AAPL", "MSFT"],
+        description=(
+            "Stock symbol code, e.g. '600519' for A-share, "
+            "'AAPL' for US, or '00700' for HK"
+        ),
+        examples=["600519", "000001", "AAPL", "MSFT", "00700", "01810"],
     )
     market: str = Field(
         default="CN",
-        pattern=r"^(CN|US)$",
-        description="Market identifier: 'CN' for China A-share, 'US' for US stocks",
+        pattern=r"^(CN|US|HK)$",
+        description=(
+            "Market identifier: 'CN' for China A-share, "
+            "'US' for US stocks, 'HK' for Hong Kong stocks"
+        ),
     )
 
 
@@ -38,7 +44,7 @@ class ConfigUpdate(BaseModel):
     )
     market_hours_only: bool | None = Field(
         None,
-        description="Only refresh during each market's trading hours (CN/US independently)",
+        description="Only refresh during each market's trading hours (CN/US/HK independently)",
     )
 
 
@@ -96,6 +102,7 @@ class MarketStatusInfo(BaseModel):
     """Real-time open/closed status for each supported market."""
     cn_open: bool
     us_open: bool
+    hk_open: bool
 
 
 class SchedulerStatusResponse(BaseModel):

@@ -7,7 +7,9 @@ avoid the stale-connection-pool problem (same strategy as
 ``eastmoney_api.py``).
 
 The primary endpoint returns both daily K-line data **and** a rich
-``qt`` real-time quote array (88 fields) for each requested stock.
+``qt`` real-time quote array for each requested stock.
+
+Supported markets: CN (A-share), US, HK (Hong Kong).
 
 This module is intentionally decoupled from ``stock_fetcher.py`` so
 it can be reused for future features (e.g. multi-day history charts).
@@ -46,10 +48,20 @@ _TIMEOUT = 10
 #   [44] 总市值(亿美元)   [45] 流通市值(亿美元)
 #   [46] 公司英文名(NOT 市净率)
 #   [51] 市净率
+#
+# HK equity (key differences from A-share):
+#   [30] 时间戳 "YYYY/MM/DD HH:MM:SS"
+#   [37] 成交额(港元，原始值)
+#   [39] 市盈率            [43] 振幅(需手动计算)
+#   [44] 总市值(亿港元)   [45] 流通市值(亿港元，often same as total)
+#   [46] 公司英文名(NOT 市净率)
+#   [47] 换手率%           [48] 52周最高   [49] 52周最低
+#   [56] 市净率
 
 # Timestamp formats by market.
 _CN_TS_FMT = "%Y%m%d%H%M%S"
 _US_TS_FMT = "%Y-%m-%d %H:%M:%S"
+_HK_TS_FMT = "%Y/%m/%d %H:%M:%S"
 
 
 def _do_request(url: str) -> bytes:
@@ -106,10 +118,10 @@ def _parse_qt(
     to the ``Stock`` ORM model columns in ``database/models.py``.
 
     Args:
-        symbol: Stock symbol (e.g. ``"600519"`` or ``"AAPL"``).
+        symbol: Stock symbol (e.g. ``"600519"``, ``"AAPL"``, ``"00700"``).
         qt:     Raw qt string list from the Tencent API.
-        market: ``"CN"`` or ``"US"`` — controls unit conversions and
-                field-index differences.
+        market: ``"CN"``, ``"US"``, or ``"HK"`` — controls unit
+                conversions and field-index differences.
 
     Unit conversions applied (CN):
     - 成交额:  万元 → 元  (× 10 000)
@@ -118,11 +130,22 @@ def _parse_qt(
     Unit conversions applied (US):
     - 成交额:  already in raw currency (no conversion)
     - 总市值 / 流通市值:  亿美元 → 美元  (× 1e8)
+
+    Unit conversions applied (HK):
+    - 成交额:  港元原始值 (no conversion)
+    - 总市值 / 流通市值:  亿港元 → 港元  (× 1e8)
     """
     is_us = market == "US"
+    is_hk = market == "HK"
 
     # ── Timestamp ───────────────────────────────────────────────────
-    ts_fmt = _US_TS_FMT if is_us else _CN_TS_FMT
+    if is_us:
+        ts_fmt = _US_TS_FMT
+    elif is_hk:
+        ts_fmt = _HK_TS_FMT
+    else:
+        ts_fmt = _CN_TS_FMT
+
     trade_time: datetime | None = None
     try:
         trade_time = datetime.strptime(qt[30], ts_fmt)
@@ -130,9 +153,9 @@ def _parse_qt(
         pass
 
     # ── Turnover (成交额) ──────────────────────────────────────────
-    # CN: 万元 → 元;  US: already in raw currency.
+    # CN: 万元 → 元;  US/HK: already in raw currency.
     turnover_raw = _safe_float(qt[37])
-    if is_us:
+    if is_us or is_hk:
         turnover = turnover_raw
     else:
         turnover = turnover_raw * 10_000 if turnover_raw is not None else None
@@ -145,11 +168,32 @@ def _parse_qt(
     circ_cap = circ_cap_raw * 1e8 if circ_cap_raw is not None else None
 
     # ── PB ratio — different index per market ─────────────────────
-    # CN: qt[46];  US: qt[51] (qt[46] is the English company name).
-    pb_index = 51 if is_us else 46
+    # CN: qt[46];  US: qt[51];  HK: qt[56] (qt[46] is English name).
+    if is_us:
+        pb_index = 51
+    elif is_hk:
+        pb_index = 56
+    else:
+        pb_index = 46
     pb_ratio = _safe_float(qt[pb_index]) if len(qt) > pb_index else None
 
-    return {
+    # ── Turnover rate — different index for HK ────────────────────
+    # CN/US: qt[38];  HK: qt[47].
+    turnover_rate_index = 47 if is_hk else 38
+    turnover_rate = (
+        _safe_float(qt[turnover_rate_index])
+        if len(qt) > turnover_rate_index
+        else None
+    )
+
+    # ── 52-week high/low — HK provides them in qt[48]/qt[49] ─────
+    high_52w: float | None = None
+    low_52w: float | None = None
+    if is_hk:
+        high_52w = _safe_float(qt[48]) if len(qt) > 48 else None
+        low_52w = _safe_float(qt[49]) if len(qt) > 49 else None
+
+    result: dict[str, Any] = {
         "symbol": symbol,
         "name": qt[1] if len(qt) > 1 else None,
         "current_price": _safe_float(qt[3]),
@@ -162,13 +206,21 @@ def _parse_qt(
         "change_amount": _safe_float(qt[31]),
         "change_percent": _safe_float(qt[32]),
         "amplitude": _safe_float(qt[43]),
-        "turnover_rate": _safe_float(qt[38]),
+        "turnover_rate": turnover_rate,
         "market_cap": market_cap,
         "circulating_market_cap": circ_cap,
         "pe_ratio": _safe_float(qt[39]),
         "pb_ratio": pb_ratio,
         "last_trade_time": trade_time,
     }
+
+    # Attach 52-week range if available (HK provides inline)
+    if high_52w is not None:
+        result["high_52w"] = high_52w
+    if low_52w is not None:
+        result["low_52w"] = low_52w
+
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -264,3 +316,49 @@ def fetch_us_stock_kline(
         return None
 
     return _parse_qt(ticker, qt, market="US")
+
+
+def fetch_hk_stock_kline(
+    code: str,
+    count: int = 1,
+) -> dict[str, Any] | None:
+    """
+    Fetch daily K-line + real-time quote for a single HK stock.
+
+    The Tencent symbol for HK stocks is ``"hk"`` + 5-digit code
+    (e.g. ``"hk00700"`` for Tencent Holdings).
+
+    Args:
+        code:  HK stock code, e.g. ``"00700"``.
+        count: Number of most-recent K-line bars to request
+               (default ``1`` — latest day only).
+
+    Returns:
+        A data dict whose keys map to ``Stock`` model columns
+        (sourced from the ``qt`` quote array), or *None* on any failure.
+    """
+    tencent_symbol = f"hk{code}"
+
+    url = f"{_KLINE_URL}?param={tencent_symbol},day,,,{count},qfq"
+
+    try:
+        raw = _do_request(url)
+        data = json.loads(raw)
+    except Exception as exc:
+        logger.warning(
+            "Tencent kline API failed for HK/%s: %s", code, exc,
+        )
+        return None
+
+    # Navigate: data -> {tencent_symbol} -> qt -> {tencent_symbol}
+    try:
+        stock_node = data["data"][tencent_symbol]
+        qt: list[str] = stock_node["qt"][tencent_symbol]
+    except (KeyError, TypeError) as exc:
+        logger.warning(
+            "Tencent kline response structure unexpected for HK/%s: %s",
+            code, exc,
+        )
+        return None
+
+    return _parse_qt(code, qt, market="HK")

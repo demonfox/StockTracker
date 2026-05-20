@@ -1,9 +1,10 @@
 """
 SQLAlchemy ORM models for StockTracker.
 
-Defines the Stock model with all tracked fields for China A-share and
-US stock markets. The ``market`` column distinguishes between "CN" and
-"US" tickers; it defaults to "CN" for backward compatibility.
+Defines the Stock model with all tracked fields for China A-share,
+US, and Hong Kong stock markets. The ``market`` column distinguishes
+between "CN", "US", and "HK" tickers; it defaults to "CN" for
+backward compatibility.
 """
 
 from datetime import datetime
@@ -48,7 +49,7 @@ class Stock(Base):
     )
     market: Mapped[str] = mapped_column(
         String(5), nullable=False, default="CN",
-        comment="Market identifier: CN (China A-share) or US",
+        comment="Market identifier: CN (China A-share), US, or HK (Hong Kong)",
     )
 
     # ── Price data ────────────────────────────────────────────────────

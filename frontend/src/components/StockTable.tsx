@@ -39,6 +39,7 @@ interface Column {
 function formatPrice(n: number | null, market?: string): string {
   if (n === null || n === undefined) return "—";
   if (market === "US") return `$${n.toFixed(2)}`;
+  if (market === "HK") return `HK$${n.toFixed(2)}`;
   return n.toFixed(2);
 }
 
@@ -51,7 +52,7 @@ function formatPercent(n: number | null): string {
 function formatChange(n: number | null, market?: string): string {
   if (n === null || n === undefined) return "—";
   const sign = n > 0 ? "+" : "";
-  const prefix = market === "US" ? "$" : "";
+  const prefix = market === "US" ? "$" : market === "HK" ? "HK$" : "";
   return `${sign}${prefix}${n.toFixed(2)}`;
 }
 
@@ -70,6 +71,12 @@ function formatCurrency(n: number | null, market?: string): string {
     if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
     return `$${n.toLocaleString("en-US")}`;
   }
+  if (market === "HK") {
+    if (n >= 1e12) return `HK$${(n / 1e12).toFixed(2)}T`;
+    if (n >= 1e9) return `HK$${(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6) return `HK$${(n / 1e6).toFixed(1)}M`;
+    return `HK$${n.toLocaleString("en-US")}`;
+  }
   if (n >= 1e12) return `${(n / 1e12).toFixed(2)}万亿`;
   if (n >= 1e8) return `${(n / 1e8).toFixed(2)}亿`;
   if (n >= 1e4) return `${(n / 1e4).toFixed(0)}万`;
@@ -85,7 +92,7 @@ function formatLastTradeTime(iso: string | null, market?: string): string {
   // The browser interprets the naive ISO string as local time, so we need to
   // undo any local-tz offset and display the raw date/time as-is.
   const pad = (n: number) => String(n).padStart(2, "0");
-  const tzLabel = market === "US" ? "ET" : "CST";
+  const tzLabel = market === "US" ? "ET" : market === "HK" ? "HKT" : "CST";
   const formatted =
     `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ` +
     `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
@@ -96,8 +103,8 @@ function getChangeColor(change: number | null, market?: string): string {
   if (change === null || change === undefined || change === 0) {
     return "text-content-secondary";
   }
-  // US: green up, red down; CN: red up, green down
-  if (market === "US") {
+  // US/HK: green up, red down; CN: red up, green down
+  if (market === "US" || market === "HK") {
     return change > 0 ? "text-emerald-600" : "text-red-600";
   }
   return change > 0 ? "text-stock-up" : "text-stock-down";
@@ -105,7 +112,7 @@ function getChangeColor(change: number | null, market?: string): string {
 
 function getChangeBg(change: number | null, market?: string): string {
   if (change === null || change === undefined || change === 0) return "";
-  if (market === "US") {
+  if (market === "US" || market === "HK") {
     return change > 0 ? "bg-emerald-50/50" : "bg-red-50/50";
   }
   return change > 0 ? "bg-red-50/50" : "bg-emerald-50/50";
@@ -117,6 +124,14 @@ function MarketBadge({ market }: { market: string }) {
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold
                         bg-blue-50 text-blue-600 ring-1 ring-blue-200/60">
         US
+      </span>
+    );
+  }
+  if (market === "HK") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold
+                        bg-orange-50 text-orange-600 ring-1 ring-orange-200/60">
+        HK
       </span>
     );
   }

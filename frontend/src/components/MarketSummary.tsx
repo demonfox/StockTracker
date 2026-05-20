@@ -3,7 +3,7 @@
  *
  * Shows:
  * - Total tracked stocks count
- * - Market status (CN + US, trading / closed)
+ * - Market status (CN + US + HK, trading / closed)
  * - Last refresh timestamp with countdown to next
  * - Quick "Refresh Now" action
  */
@@ -47,6 +47,7 @@ export default function MarketSummary({
 
   const cnOpen = schedulerStatus?.market_status?.cn_open ?? false;
   const usOpen = schedulerStatus?.market_status?.us_open ?? false;
+  const hkOpen = schedulerStatus?.market_status?.hk_open ?? false;
 
   const nextRefreshIn = () => {
     if (!lastRefresh || pollInterval <= 0) return "—";
@@ -122,16 +123,33 @@ export default function MarketSummary({
                   {usOpen ? "交易中" : "已休市"}
                 </span>
               </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                    hkOpen ? "bg-orange-500 animate-pulse" : "bg-gray-400"
+                  }`}
+                />
+                <span className={`text-xs font-semibold ${
+                  hkOpen ? "text-orange-600" : "text-content-secondary"
+                }`}>
+                  港股
+                </span>
+                <span className={`text-[10px] ${
+                  hkOpen ? "text-orange-600" : "text-content-muted"
+                }`}>
+                  {hkOpen ? "交易中" : "已休市"}
+                </span>
+              </div>
             </div>
           </div>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center
                            transition-colors duration-300
-                           ${(cnOpen || usOpen)
+                           ${(cnOpen || usOpen || hkOpen)
                              ? "bg-emerald-50 group-hover:bg-emerald-100"
                              : "bg-gray-100 group-hover:bg-gray-150"
                            }`}>
             <TrendingUp className={`w-5 h-5 ${
-              (cnOpen || usOpen) ? "text-emerald-600" : "text-gray-400"
+              (cnOpen || usOpen || hkOpen) ? "text-emerald-600" : "text-gray-400"
             }`} />
           </div>
         </div>
