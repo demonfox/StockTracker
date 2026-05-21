@@ -207,6 +207,7 @@ export default function StockTable({
         render: (s) => (
           <span
             className={`font-mono font-semibold text-[13px] ${getChangeColor(s.change_percent, s.market)}`}
+            title={formatLastTradeTime(s.last_trade_time, s.market)}
           >
             {formatPrice(s.current_price, s.market)}
           </span>
@@ -223,6 +224,7 @@ export default function StockTable({
             <span
               className={`inline-flex items-center justify-end font-mono font-semibold text-[13px]
                           px-2 py-0.5 rounded ${color} ${getChangeBg(s.change_percent, s.market)}`}
+              title={formatLastTradeTime(s.last_trade_time, s.market)}
             >
               {formatPercent(s.change_percent)}
             </span>
@@ -235,7 +237,10 @@ export default function StockTable({
         align: "right",
         sortable: true,
         render: (s) => (
-          <span className={`font-mono text-xs ${getChangeColor(s.change_percent, s.market)}`}>
+          <span
+            className={`font-mono text-xs ${getChangeColor(s.change_percent, s.market)}`}
+            title={formatLastTradeTime(s.last_trade_time, s.market)}
+          >
             {formatChange(s.change_amount, s.market)}
           </span>
         ),
