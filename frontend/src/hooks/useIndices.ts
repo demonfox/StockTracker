@@ -2,12 +2,13 @@
  * Custom React hook for market index data.
  *
  * Fetches real-time quotes for major indices across CN, HK, and US
- * markets with configurable polling interval.
+ * markets with configurable polling interval. Also fetches intraday
+ * minute-level price data for CN and HK markets.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchIndices } from "../services/api";
-import type { IndicesResponse } from "../types/stock";
+import { fetchIndices, fetchIndicesMinute } from "../services/api";
+import type { IndicesMinuteResponse, IndicesResponse } from "../types/stock";
 
 // ── Default polling interval (ms) — less frequent than stock data ────
 const DEFAULT_INDICES_POLL_INTERVAL = 60_000;
@@ -15,6 +16,8 @@ const DEFAULT_INDICES_POLL_INTERVAL = 60_000;
 export interface UseIndicesReturn {
   /** Grouped index data by market */
   indices: IndicesResponse | null;
+  /** Intraday minute data for CN and HK indices */
+  minuteData: IndicesMinuteResponse | null;
   /** True while the initial fetch is in progress */
   loading: boolean;
   /** Latest error message, or null */
@@ -25,6 +28,7 @@ export function useIndices(
   pollInterval: number = DEFAULT_INDICES_POLL_INTERVAL,
 ): UseIndicesReturn {
   const [indices, setIndices] = useState<IndicesResponse | null>(null);
+  const [minuteData, setMinuteData] = useState<IndicesMinuteResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,9 +44,13 @@ export function useIndices(
     }
 
     try {
-      const data = await fetchIndices();
+      const [quotesData, minuteResult] = await Promise.all([
+        fetchIndices(),
+        fetchIndicesMinute(),
+      ]);
       if (mountedRef.current) {
-        setIndices(data);
+        setIndices(quotesData);
+        setMinuteData(minuteResult);
         setError(null);
       }
     } catch (err) {
@@ -78,7 +86,7 @@ export function useIndices(
     return () => clearInterval(timer);
   }, [pollInterval, loadIndices]);
 
-  return { indices, loading, error };
+  return { indices, minuteData, loading, error };
 }
 
 export default useIndices;

@@ -2,12 +2,28 @@
  * Market Indices panel with tab-based market switching.
  *
  * Displays 3 major indices for the selected market (CN / HK / US).
- * Click a market tab to switch the view.
+ * For CN and HK markets, each index card includes an intraday line chart
+ * showing minute-by-minute price movement with a prev-close reference line.
  */
 
 import { useState } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { IndexQuote, IndicesResponse, MarketType } from "../types/stock";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import type {
+  IndexQuote,
+  IndexMinuteData,
+  IndicesMinuteResponse,
+  IndicesResponse,
+  MarketType,
+} from "../types/stock";
 
 // ── Tab Definitions ──────────────────────────────────────────────────
 
@@ -27,6 +43,7 @@ const MARKET_TABS: MarketTab[] = [
 
 interface MarketIndicesProps {
   indices: IndicesResponse | null;
+  minuteData: IndicesMinuteResponse | null;
   loading: boolean;
 }
 
@@ -53,9 +70,21 @@ function getChangeBgColor(changePercent: number | null, market: MarketType): str
   return changePercent > 0 ? "bg-emerald-50/60" : "bg-red-50/60";
 }
 
+/**
+ * Get the line color for the chart.
+ * CN: red for up, green for down
+ * HK/US: green for up, red for down
+ */
+function getLineColor(changePercent: number | null, market: MarketType): string {
+  if (changePercent === null || changePercent === 0) return "#6b7280";
+  if (market === "CN") {
+    return changePercent > 0 ? "#dc2626" : "#059669";
+  }
+  return changePercent > 0 ? "#059669" : "#dc2626";
+}
+
 function formatPrice(price: number | null): string {
   if (price === null) return "—";
-  if (price >= 10000) return price.toFixed(2);
   return price.toFixed(2);
 }
 
@@ -71,14 +100,30 @@ function formatChange(change: number | null): string {
   return `${sign}${change.toFixed(2)}`;
 }
 
+/**
+ * Format time string from "HHMM" to "HH:MM".
+ */
+function formatTime(time: string): string {
+  if (time.length === 4) {
+    return `${time.slice(0, 2)}:${time.slice(2)}`;
+  }
+  return time;
+}
+
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MarketIndices({ indices, loading }: MarketIndicesProps) {
+export default function MarketIndices({ indices, minuteData, loading }: MarketIndicesProps) {
   const [activeMarket, setActiveMarket] = useState<MarketType>("CN");
 
   const currentIndices: IndexQuote[] = indices
     ? indices[activeMarket.toLowerCase() as "cn" | "hk" | "us"]
     : [];
+
+  // Get minute data for the active market (only CN and HK have it)
+  const currentMinuteData: IndexMinuteData[] | null =
+    minuteData && (activeMarket === "CN" || activeMarket === "HK")
+      ? minuteData[activeMarket.toLowerCase() as "cn" | "hk"]
+      : null;
 
   return (
     <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-border-subtle shadow-sm overflow-hidden">
@@ -112,9 +157,21 @@ export default function MarketIndices({ indices, loading }: MarketIndicesProps) 
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {currentIndices.map((index) => (
-              <IndexCard key={index.symbol} index={index} market={activeMarket} />
-            ))}
+            {currentIndices.map((index) => {
+              // Find matching minute data for this index
+              const minute = currentMinuteData?.find(
+                (m) => m.symbol === index.symbol,
+              ) ?? null;
+
+              return (
+                <IndexCard
+                  key={index.symbol}
+                  index={index}
+                  market={activeMarket}
+                  minuteData={minute}
+                />
+              );
+            })}
           </div>
         )}
       </div>
@@ -127,11 +184,13 @@ export default function MarketIndices({ indices, loading }: MarketIndicesProps) 
 interface IndexCardProps {
   index: IndexQuote;
   market: MarketType;
+  minuteData: IndexMinuteData | null;
 }
 
-function IndexCard({ index, market }: IndexCardProps) {
+function IndexCard({ index, market, minuteData }: IndexCardProps) {
   const changeColor = getChangeColor(index.change_percent, market);
   const bgColor = getChangeBgColor(index.change_percent, market);
+  const lineColor = getLineColor(index.change_percent, market);
 
   const TrendIcon = index.change_percent === null || index.change_percent === 0
     ? Minus
@@ -139,33 +198,154 @@ function IndexCard({ index, market }: IndexCardProps) {
       ? TrendingUp
       : TrendingDown;
 
+  const hasChartData = minuteData && minuteData.points.length > 1;
+
   return (
     <div
       className={`relative rounded-xl p-4 ${bgColor} border border-border-subtle/50
                   transition-all duration-200 hover:shadow-md hover:scale-[1.01]`}
     >
-      {/* Index name */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-content-secondary">
-          {index.name}
-        </span>
-        <TrendIcon className={`w-4 h-4 ${changeColor}`} />
-      </div>
+      <div className="flex items-center gap-3">
+        {/* Left: text info */}
+        <div className={hasChartData ? "flex-shrink-0 min-w-0" : "flex-1"}>
+          {/* Index name */}
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-sm font-medium text-content-secondary truncate">
+              {index.name}
+            </span>
+            <TrendIcon className={`w-3.5 h-3.5 flex-shrink-0 ${changeColor}`} />
+          </div>
 
-      {/* Current price */}
-      <p className={`text-2xl font-bold tabular-nums ${changeColor}`}>
-        {formatPrice(index.current_price)}
-      </p>
+          {/* Current price */}
+          <p className={`text-xl font-bold tabular-nums ${changeColor}`}>
+            {formatPrice(index.current_price)}
+          </p>
 
-      {/* Change row */}
-      <div className="flex items-center gap-3 mt-2">
-        <span className={`text-sm font-mono font-semibold ${changeColor}`}>
-          {formatPercent(index.change_percent)}
-        </span>
-        <span className={`text-xs font-mono ${changeColor}`}>
-          {formatChange(index.change_amount)}
-        </span>
+          {/* Change info */}
+          <div className="mt-1 space-y-0.5">
+            <p className={`text-xs font-mono font-semibold ${changeColor}`}>
+              {formatPercent(index.change_percent)}
+            </p>
+            <p className={`text-[11px] font-mono ${changeColor}`}>
+              {formatChange(index.change_amount)}
+            </p>
+          </div>
+        </div>
+
+        {/* Right: Intraday Line Chart */}
+        {hasChartData && (
+          <div className="flex-1 min-w-0">
+            <IntradayChart
+              minuteData={minuteData}
+              lineColor={lineColor}
+              market={market}
+            />
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ── Intraday Chart Sub-component ─────────────────────────────────────
+
+interface IntradayChartProps {
+  minuteData: IndexMinuteData;
+  lineColor: string;
+  market: MarketType;
+}
+
+function IntradayChart({ minuteData, lineColor, market }: IntradayChartProps) {
+  const { points, prev_close } = minuteData;
+
+  // Prepare chart data — sample points if too many for smooth rendering
+  const chartData = points.map((p) => ({
+    time: p.time,
+    price: p.price,
+  }));
+
+  // Calculate Y domain with some padding
+  const prices = points.map((p) => p.price);
+  const allValues = prev_close ? [...prices, prev_close] : prices;
+  const minPrice = Math.min(...allValues);
+  const maxPrice = Math.max(...allValues);
+  const padding = (maxPrice - minPrice) * 0.1 || maxPrice * 0.001;
+  const yMin = minPrice - padding;
+  const yMax = maxPrice + padding;
+
+  // Show ~5 time labels evenly spaced
+  const tickInterval = Math.floor(chartData.length / 5);
+
+  return (
+    <div className="-mx-1">
+      <ResponsiveContainer width="100%" height={128}>
+        <LineChart
+          data={chartData}
+          margin={{ top: 4, right: 4, bottom: 0, left: 4 }}
+        >
+          <XAxis
+            dataKey="time"
+            tick={{ fontSize: 9, fill: "#9ca3af" }}
+            tickFormatter={formatTime}
+            interval={tickInterval}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis domain={[yMin, yMax]} hide />
+          {prev_close && (
+            <ReferenceLine
+              y={prev_close}
+              stroke="#9ca3af"
+              strokeDasharray="3 3"
+              strokeWidth={1}
+            />
+          )}
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload || payload.length === 0) return null;
+              const point = payload[0];
+              const price = point.value as number;
+              const time = point.payload.time as string;
+              const diff = prev_close ? price - prev_close : null;
+              const diffPct = prev_close && prev_close !== 0
+                ? ((price - prev_close) / prev_close) * 100
+                : null;
+
+              // Color logic matching market convention
+              let tooltipColor = "#6b7280";
+              if (diff !== null && diff !== 0) {
+                if (market === "CN") {
+                  tooltipColor = diff > 0 ? "#dc2626" : "#059669";
+                } else {
+                  tooltipColor = diff > 0 ? "#059669" : "#dc2626";
+                }
+              }
+
+              return (
+                <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg px-2.5 py-1.5 shadow-lg text-xs">
+                  <p className="text-content-muted">{formatTime(time)}</p>
+                  <p className="font-semibold tabular-nums" style={{ color: tooltipColor }}>
+                    {price.toFixed(2)}
+                    {diffPct !== null && (
+                      <span className="ml-1.5 text-[10px]">
+                        {diffPct > 0 ? "+" : ""}{diffPct.toFixed(2)}%
+                      </span>
+                    )}
+                  </p>
+                </div>
+              );
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="price"
+            stroke={lineColor}
+            strokeWidth={1.5}
+            dot={false}
+            activeDot={{ r: 3, strokeWidth: 0, fill: lineColor }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }

@@ -137,3 +137,36 @@ class IndicesResponse(BaseModel):
     cn: list[IndexQuote] = Field(default_factory=list, description="China A-share indices")
     hk: list[IndexQuote] = Field(default_factory=list, description="Hong Kong indices")
     us: list[IndexQuote] = Field(default_factory=list, description="US indices")
+
+
+# ── Index Minute Data Schemas ────────────────────────────────────────
+
+class IndexMinutePoint(BaseModel):
+    """A single minute-level price point."""
+    time: str = Field(description="Time in HHMM format (e.g. '0930', '1405')")
+    price: float = Field(description="Price at this minute")
+
+
+class IndexMinuteData(BaseModel):
+    """Intraday minute data for a single market index."""
+    symbol: str = Field(description="Tencent API symbol (e.g. 'sh000001')")
+    name: str = Field(description="Index display name")
+    market: str = Field(description="Market identifier: CN or HK")
+    date: str | None = Field(None, description="Trading date (YYYYMMDD)")
+    prev_close: float | None = Field(None, description="Previous close price")
+    points: list[IndexMinutePoint] = Field(
+        default_factory=list,
+        description="Minute-by-minute price points",
+    )
+
+
+class IndicesMinuteResponse(BaseModel):
+    """Grouped intraday minute data for CN and HK indices."""
+    cn: list[IndexMinuteData] = Field(
+        default_factory=list,
+        description="China A-share index minute data",
+    )
+    hk: list[IndexMinuteData] = Field(
+        default_factory=list,
+        description="Hong Kong index minute data",
+    )

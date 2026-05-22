@@ -7,6 +7,7 @@ Endpoints:
     GET    /api/stocks/{symbol}   — Get a single stock by symbol
     DELETE /api/stocks/{symbol}   — Remove a stock from tracking
     GET    /api/indices           — Fetch real-time market indices (CN/HK/US)
+    GET    /api/indices/minute    — Intraday minute data for CN/HK indices
     GET    /api/scheduler/status  — Get scheduler status info
     PATCH  /api/config            — Update scheduler config at runtime
     POST   /api/scheduler/refresh — Trigger an immediate data refresh
@@ -27,7 +28,9 @@ from app.database.crud import (
 )
 from app.schemas.stock import (
     ConfigUpdate,
+    IndexMinuteData,
     IndexQuote,
+    IndicesMinuteResponse,
     IndicesResponse,
     MessageResponse,
     SchedulerStatusResponse,
@@ -41,7 +44,7 @@ from app.services.scheduler import (
     update_interval,
 )
 from app.services.stock_fetcher import fetch_stocks_by_symbols
-from app.services.index_fetcher import fetch_all_indices
+from app.services.index_fetcher import fetch_all_indices, fetch_indices_minute
 from app.database.crud import batch_update_stock_data
 
 logger = logging.getLogger(__name__)
@@ -167,6 +170,22 @@ async def get_indices() -> IndicesResponse:
         cn=[IndexQuote(**item) for item in data["cn"]],
         hk=[IndexQuote(**item) for item in data["hk"]],
         us=[IndexQuote(**item) for item in data["us"]],
+    )
+
+
+@router.get("/indices/minute", response_model=IndicesMinuteResponse)
+async def get_indices_minute() -> IndicesMinuteResponse:
+    """
+    Fetch intraday minute-level price data for CN and HK market indices.
+
+    Returns per-minute price points for the current (or last) trading day.
+    US market minute data is not yet supported via this endpoint.
+    """
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, fetch_indices_minute)
+    return IndicesMinuteResponse(
+        cn=[IndexMinuteData(**item) for item in data.get("cn", [])],
+        hk=[IndexMinuteData(**item) for item in data.get("hk", [])],
     )
 
 

@@ -129,3 +129,27 @@ export interface IndicesResponse {
   hk: IndexQuote[];
   us: IndexQuote[];
 }
+
+// ── Index Minute Data Types ─────────────────────────────────────────
+
+/** A single minute-level price point */
+export interface IndexMinutePoint {
+  time: string;
+  price: number;
+}
+
+/** Intraday minute data for a single market index */
+export interface IndexMinuteData {
+  symbol: string;
+  name: string;
+  market: "CN" | "HK";
+  date: string | null;
+  prev_close: number | null;
+  points: IndexMinutePoint[];
+}
+
+/** Response from GET /api/indices/minute */
+export interface IndicesMinuteResponse {
+  cn: IndexMinuteData[];
+  hk: IndexMinuteData[];
+}

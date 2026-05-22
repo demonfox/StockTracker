@@ -34,7 +34,7 @@ function App() {
     setPollInterval,
   } = useStocks();
 
-  const { indices, loading: indicesLoading } = useIndices();
+  const { indices, minuteData, loading: indicesLoading } = useIndices();
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -73,7 +73,7 @@ function App() {
         )}
 
         {/* Market Indices Panel (tab-based) */}
-        <MarketIndices indices={indices} loading={indicesLoading} />
+        <MarketIndices indices={indices} minuteData={minuteData} loading={indicesLoading} />
 
         {/* Market Summary Strip */}
         <MarketSummary
