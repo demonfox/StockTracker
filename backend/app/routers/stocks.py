@@ -6,6 +6,7 @@ Endpoints:
     POST   /api/stocks            — Add a new stock ticker
     GET    /api/stocks/{symbol}   — Get a single stock by symbol
     DELETE /api/stocks/{symbol}   — Remove a stock from tracking
+    GET    /api/indices           — Fetch real-time market indices (CN/HK/US)
     GET    /api/scheduler/status  — Get scheduler status info
     PATCH  /api/config            — Update scheduler config at runtime
     POST   /api/scheduler/refresh — Trigger an immediate data refresh
@@ -26,6 +27,8 @@ from app.database.crud import (
 )
 from app.schemas.stock import (
     ConfigUpdate,
+    IndexQuote,
+    IndicesResponse,
     MessageResponse,
     SchedulerStatusResponse,
     StockCreate,
@@ -38,6 +41,7 @@ from app.services.scheduler import (
     update_interval,
 )
 from app.services.stock_fetcher import fetch_stocks_by_symbols
+from app.services.index_fetcher import fetch_all_indices
 from app.database.crud import batch_update_stock_data
 
 logger = logging.getLogger(__name__)
@@ -144,6 +148,25 @@ async def delete_stock(
     return MessageResponse(
         message=f"Stock '{symbol}' removed successfully.",
         success=True,
+    )
+
+
+# ── Market Indices endpoint ────────────────────────────────────────────
+
+@router.get("/indices", response_model=IndicesResponse)
+async def get_indices() -> IndicesResponse:
+    """
+    Fetch real-time quotes for major market indices (CN, HK, US).
+
+    Returns grouped index data — 3 indices per market.
+    Data is fetched live from Tencent Finance (not persisted).
+    """
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, fetch_all_indices)
+    return IndicesResponse(
+        cn=[IndexQuote(**item) for item in data["cn"]],
+        hk=[IndexQuote(**item) for item in data["hk"]],
+        us=[IndexQuote(**item) for item in data["us"]],
     )
 
 

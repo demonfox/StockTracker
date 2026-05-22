@@ -118,3 +118,22 @@ class MessageResponse(BaseModel):
     """Generic message response for simple operations."""
     message: str
     success: bool = True
+
+
+# ── Index Quote Schemas ──────────────────────────────────────────────
+
+class IndexQuote(BaseModel):
+    """Real-time quote for a single market index."""
+    symbol: str = Field(description="Tencent API symbol (e.g. 'sh000001', 'hkHSI')")
+    name: str = Field(description="Index display name (e.g. '上证指数')")
+    market: str = Field(description="Market identifier: CN, US, or HK")
+    current_price: float | None = None
+    change_amount: float | None = None
+    change_percent: float | None = None
+
+
+class IndicesResponse(BaseModel):
+    """Grouped market indices response."""
+    cn: list[IndexQuote] = Field(default_factory=list, description="China A-share indices")
+    hk: list[IndexQuote] = Field(default_factory=list, description="Hong Kong indices")
+    us: list[IndexQuote] = Field(default_factory=list, description="US indices")

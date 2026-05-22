@@ -110,3 +110,22 @@ export interface SortConfig {
   field: keyof Stock;
   direction: SortDirection;
 }
+
+// ── Market Index Types ───────────────────────────────────────────────
+
+/** Real-time quote for a single market index */
+export interface IndexQuote {
+  symbol: string;
+  name: string;
+  market: "CN" | "US" | "HK";
+  current_price: number | null;
+  change_amount: number | null;
+  change_percent: number | null;
+}
+
+/** Response from GET /api/indices */
+export interface IndicesResponse {
+  cn: IndexQuote[];
+  hk: IndexQuote[];
+  us: IndexQuote[];
+}

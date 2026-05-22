@@ -9,6 +9,7 @@
 import axios from "axios";
 import type {
   ConfigUpdateRequest,
+  IndicesResponse,
   MarketType,
   MessageResponse,
   SchedulerStatus,
@@ -80,6 +81,14 @@ export async function triggerRefresh(): Promise<MessageResponse> {
 /** Ping the backend to check connectivity. */
 export async function healthCheck(): Promise<{ status: string }> {
   const { data } = await api.get<{ status: string }>("/health");
+  return data;
+}
+
+// ── Market Indices ───────────────────────────────────────────────────
+
+/** Fetch real-time quotes for major market indices (CN, HK, US). */
+export async function fetchIndices(): Promise<IndicesResponse> {
+  const { data } = await api.get<IndicesResponse>("/indices");
   return data;
 }
 

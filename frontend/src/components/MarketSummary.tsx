@@ -1,20 +1,15 @@
 /**
- * Market summary strip — horizontal row of compact stat cards.
+ * Compact market summary bar — single horizontal strip.
  *
- * Shows:
+ * Shows in a condensed row:
  * - Total tracked stocks count
- * - Market status (CN + US + HK, trading / closed)
- * - Last refresh timestamp with countdown to next
- * - Quick "Refresh Now" action
+ * - Market status indicators (CN + HK + US)
+ * - Last refresh timestamp with countdown
+ * - Data source + refresh button
  */
 
 import { useEffect, useState } from "react";
-import {
-  BarChart3,
-  TrendingUp,
-  Clock,
-  Zap,
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { SchedulerStatus } from "../types/stock";
 
 // ── Props ────────────────────────────────────────────────────────────
@@ -54,176 +49,105 @@ export default function MarketSummary({
     const elapsed = Math.floor((now.getTime() - lastRefresh.getTime()) / 1000);
     const remaining = Math.max(0, Math.floor(pollInterval / 1000) - elapsed);
     if (remaining <= 0) return "即将刷新";
-    if (remaining < 60) return `${remaining}秒`;
-    return `${Math.floor(remaining / 60)}分${remaining % 60}秒`;
+    if (remaining < 60) return `${remaining}s`;
+    return `${Math.floor(remaining / 60)}m${remaining % 60}s`;
   };
 
+  const refreshTimeStr = lastRefresh
+    ? lastRefresh.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "—";
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {/* Tracked stocks */}
-      <div className="stat-card group">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-content-muted uppercase tracking-wider">
-              追踪股票
-            </p>
-            <p className="text-2xl font-bold text-content-primary mt-1 tabular-nums">
-              {stockCount}
-            </p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center
-                          group-hover:bg-primary/12 transition-colors duration-300">
-            <BarChart3 className="w-5 h-5 text-primary" />
-          </div>
-        </div>
-        <p className="text-[10px] text-content-muted mt-2">
-          {stockCount > 0 ? "实时数据追踪中" : "点击右上角添加股票"}
-        </p>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 rounded-xl
+                    bg-white/60 backdrop-blur-sm border border-border-subtle text-xs">
+      {/* Tracked count */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-content-muted">追踪</span>
+        <span className="font-semibold text-content-primary tabular-nums">{stockCount}</span>
+        <span className="text-content-muted">只</span>
       </div>
 
-      {/* Market status — dual market */}
-      <div className="stat-card group">
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-content-muted uppercase tracking-wider">
-              市场状态
-            </p>
-            <div className="mt-1.5 space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    cnOpen ? "bg-emerald-500 animate-pulse" : "bg-gray-400"
-                  }`}
-                />
-                <span className={`text-xs font-semibold ${
-                  cnOpen ? "text-emerald-600" : "text-content-secondary"
-                }`}>
-                  沪深A股
-                </span>
-                <span className={`text-[10px] ${
-                  cnOpen ? "text-emerald-600" : "text-content-muted"
-                }`}>
-                  {cnOpen ? "交易中" : "已休市"}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    usOpen ? "bg-blue-500 animate-pulse" : "bg-gray-400"
-                  }`}
-                />
-                <span className={`text-xs font-semibold ${
-                  usOpen ? "text-blue-600" : "text-content-secondary"
-                }`}>
-                  美股
-                </span>
-                <span className={`text-[10px] ${
-                  usOpen ? "text-blue-600" : "text-content-muted"
-                }`}>
-                  {usOpen ? "交易中" : "已休市"}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    hkOpen ? "bg-orange-500 animate-pulse" : "bg-gray-400"
-                  }`}
-                />
-                <span className={`text-xs font-semibold ${
-                  hkOpen ? "text-orange-600" : "text-content-secondary"
-                }`}>
-                  港股
-                </span>
-                <span className={`text-[10px] ${
-                  hkOpen ? "text-orange-600" : "text-content-muted"
-                }`}>
-                  {hkOpen ? "交易中" : "已休市"}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                           transition-colors duration-300
-                           ${(cnOpen || usOpen || hkOpen)
-                             ? "bg-emerald-50 group-hover:bg-emerald-100"
-                             : "bg-gray-100 group-hover:bg-gray-150"
-                           }`}>
-            <TrendingUp className={`w-5 h-5 ${
-              (cnOpen || usOpen || hkOpen) ? "text-emerald-600" : "text-gray-400"
-            }`} />
-          </div>
-        </div>
-        <p className="text-[10px] text-content-muted mt-2">
-          {now.toLocaleDateString("zh-CN", {
-            weekday: "short",
-            month: "numeric",
-            day: "numeric",
-          })}
-        </p>
+      <span className="text-border-subtle">|</span>
+
+      {/* Market status dots */}
+      <div className="flex items-center gap-3">
+        <MarketDot label="A股" open={cnOpen} color="emerald" />
+        <MarketDot label="港股" open={hkOpen} color="orange" />
+        <MarketDot label="美股" open={usOpen} color="blue" />
       </div>
 
-      {/* Last refresh */}
-      <div className="stat-card group">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-content-muted uppercase tracking-wider">
-              上次刷新
-            </p>
-            <p className="text-2xl font-bold text-content-primary mt-1 tabular-nums">
-              {lastRefresh
-                ? lastRefresh.toLocaleTimeString("zh-CN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })
-                : "—"}
-            </p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center
-                          group-hover:bg-amber-100 transition-colors duration-300">
-            <Clock className="w-5 h-5 text-amber-600" />
-          </div>
-        </div>
-        <p className="text-[10px] text-content-muted mt-2">
-          {pollInterval > 0
-            ? `下次刷新: ${nextRefreshIn()}`
-            : "自动刷新已关闭"}
-        </p>
+      <span className="text-border-subtle">|</span>
+
+      {/* Last refresh + countdown */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-content-muted">刷新</span>
+        <span className="font-mono font-medium text-content-primary tabular-nums">
+          {refreshTimeStr}
+        </span>
+        {pollInterval > 0 && (
+          <span className="text-content-muted">
+            ({nextRefreshIn()})
+          </span>
+        )}
       </div>
 
-      {/* Quick refresh */}
-      <div
-        className="stat-card group cursor-pointer hover:ring-primary/30 active:scale-[0.98] transition-all duration-200"
-        onClick={onRefresh}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onRefresh();
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-content-muted uppercase tracking-wider">
-              数据源
-            </p>
-            <p className="text-2xl font-bold text-primary mt-1">
-              {refreshing ? "刷新中" : "Tencent"}
-            </p>
-          </div>
-          <div className={`w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center
-                           group-hover:bg-primary/15 transition-colors duration-300
-                           ${refreshing ? "animate-pulse" : ""}`}>
-            <Zap className={`w-5 h-5 text-primary ${
-              refreshing ? "animate-spin" : ""
-            }`} />
-          </div>
-        </div>
-        <p className="text-[10px] text-content-muted mt-2">
-          {schedulerStatus?.running
-            ? `每 ${schedulerStatus.refresh_interval_seconds}s 自动刷新`
-            : "点击手动拉取最新行情"}
-        </p>
+      <span className="text-border-subtle">|</span>
+
+      {/* Data source + refresh action */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-content-muted">数据源:</span>
+        <span className="font-medium text-primary/80">Tencent</span>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="ml-1 p-1 rounded-md hover:bg-primary/10 transition-colors duration-200
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+          title="立即刷新"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-primary ${refreshing ? "animate-spin" : ""}`} />
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ── Market Status Dot ────────────────────────────────────────────────
+
+interface MarketDotProps {
+  label: string;
+  open: boolean;
+  color: "emerald" | "orange" | "blue";
+}
+
+const DOT_COLORS = {
+  emerald: { on: "bg-emerald-500", off: "bg-gray-400" },
+  orange: { on: "bg-orange-500", off: "bg-gray-400" },
+  blue: { on: "bg-blue-500", off: "bg-gray-400" },
+};
+
+const LABEL_COLORS = {
+  emerald: { on: "text-emerald-700", off: "text-content-muted" },
+  orange: { on: "text-orange-700", off: "text-content-muted" },
+  blue: { on: "text-blue-700", off: "text-content-muted" },
+};
+
+function MarketDot({ label, open, color }: MarketDotProps) {
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          open ? `${DOT_COLORS[color].on} animate-pulse` : DOT_COLORS[color].off
+        }`}
+      />
+      <span className={`text-[11px] font-medium ${
+        open ? LABEL_COLORS[color].on : LABEL_COLORS[color].off
+      }`}>
+        {label}
+      </span>
     </div>
   );
 }

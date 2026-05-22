@@ -11,7 +11,9 @@
 
 import { useState } from "react";
 import { useStocks } from "./hooks/useStocks";
+import { useIndices } from "./hooks/useIndices";
 import Header from "./components/Header";
+import MarketIndices from "./components/MarketIndices";
 import MarketSummary from "./components/MarketSummary";
 import StockTable from "./components/StockTable";
 import AddStockModal from "./components/AddStockModal";
@@ -31,6 +33,8 @@ function App() {
     updateConfig,
     setPollInterval,
   } = useStocks();
+
+  const { indices, loading: indicesLoading } = useIndices();
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -67,6 +71,9 @@ function App() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Market Indices Panel (tab-based) */}
+        <MarketIndices indices={indices} loading={indicesLoading} />
 
         {/* Market Summary Strip */}
         <MarketSummary
