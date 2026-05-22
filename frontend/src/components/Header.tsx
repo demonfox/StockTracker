@@ -199,6 +199,32 @@ export default function Header({
 
         {/* ── Right: Actions ── */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Current date & time with timezone */}
+          <div className="hidden lg:flex items-center gap-1.5 text-xs text-content-muted
+                          px-2.5 py-1 rounded-lg bg-gray-50 ring-1 ring-gray-100">
+            <span>
+              📅 {currentTime.toLocaleDateString("zh-CN", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "short",
+              })}{" "}
+              {currentTime.toLocaleTimeString("zh-CN", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              <span className="text-content-muted/70">
+                (GMT{(() => {
+                  const offset = -currentTime.getTimezoneOffset();
+                  const sign = offset >= 0 ? "+" : "-";
+                  const hours = Math.floor(Math.abs(offset) / 60);
+                  const minutes = Math.abs(offset) % 60;
+                  return minutes > 0 ? `${sign}${hours}:${String(minutes).padStart(2, "0")}` : `${sign}${hours}`;
+                })()})
+              </span>
+            </span>
+          </div>
+
           {/* Refresh time badge */}
           <div className="hidden md:flex items-center gap-1.5 text-xs text-content-muted">
             <Clock className="w-3.5 h-3.5" />
