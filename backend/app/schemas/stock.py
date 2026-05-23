@@ -151,7 +151,7 @@ class IndexMinuteData(BaseModel):
     """Intraday minute data for a single market index."""
     symbol: str = Field(description="Tencent API symbol (e.g. 'sh000001')")
     name: str = Field(description="Index display name")
-    market: str = Field(description="Market identifier: CN or HK")
+    market: str = Field(description="Market identifier: CN, HK, or US")
     date: str | None = Field(None, description="Trading date (YYYYMMDD)")
     prev_close: float | None = Field(None, description="Previous close price")
     points: list[IndexMinutePoint] = Field(
@@ -161,7 +161,7 @@ class IndexMinuteData(BaseModel):
 
 
 class IndicesMinuteResponse(BaseModel):
-    """Grouped intraday minute data for CN and HK indices."""
+    """Grouped intraday minute data for CN, HK, and US indices."""
     cn: list[IndexMinuteData] = Field(
         default_factory=list,
         description="China A-share index minute data",
@@ -169,4 +169,8 @@ class IndicesMinuteResponse(BaseModel):
     hk: list[IndexMinuteData] = Field(
         default_factory=list,
         description="Hong Kong index minute data",
+    )
+    us: list[IndexMinuteData] = Field(
+        default_factory=list,
+        description="US index minute data",
     )

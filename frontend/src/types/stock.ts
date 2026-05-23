@@ -142,7 +142,7 @@ export interface IndexMinutePoint {
 export interface IndexMinuteData {
   symbol: string;
   name: string;
-  market: "CN" | "HK";
+  market: "CN" | "HK" | "US";
   date: string | null;
   prev_close: number | null;
   points: IndexMinutePoint[];
@@ -152,4 +152,5 @@ export interface IndexMinuteData {
 export interface IndicesMinuteResponse {
   cn: IndexMinuteData[];
   hk: IndexMinuteData[];
+  us: IndexMinuteData[];
 }

@@ -119,10 +119,10 @@ export default function MarketIndices({ indices, minuteData, loading }: MarketIn
     ? indices[activeMarket.toLowerCase() as "cn" | "hk" | "us"]
     : [];
 
-  // Get minute data for the active market (only CN and HK have it)
+  // Get minute data for the active market
   const currentMinuteData: IndexMinuteData[] | null =
-    minuteData && (activeMarket === "CN" || activeMarket === "HK")
-      ? minuteData[activeMarket.toLowerCase() as "cn" | "hk"]
+    minuteData
+      ? minuteData[activeMarket.toLowerCase() as "cn" | "hk" | "us"]
       : null;
 
   return (

@@ -7,7 +7,7 @@ Endpoints:
     GET    /api/stocks/{symbol}   — Get a single stock by symbol
     DELETE /api/stocks/{symbol}   — Remove a stock from tracking
     GET    /api/indices           — Fetch real-time market indices (CN/HK/US)
-    GET    /api/indices/minute    — Intraday minute data for CN/HK indices
+    GET    /api/indices/minute    — Intraday minute data for CN/HK/US indices
     GET    /api/scheduler/status  — Get scheduler status info
     PATCH  /api/config            — Update scheduler config at runtime
     POST   /api/scheduler/refresh — Trigger an immediate data refresh
@@ -176,16 +176,17 @@ async def get_indices() -> IndicesResponse:
 @router.get("/indices/minute", response_model=IndicesMinuteResponse)
 async def get_indices_minute() -> IndicesMinuteResponse:
     """
-    Fetch intraday minute-level price data for CN and HK market indices.
+    Fetch intraday minute-level price data for CN, HK, and US market indices.
 
     Returns per-minute price points for the current (or last) trading day.
-    US market minute data is not yet supported via this endpoint.
+    CN/HK use Tencent minute/query (per-minute), US uses Sina 5-min K-line.
     """
     loop = asyncio.get_event_loop()
     data = await loop.run_in_executor(None, fetch_indices_minute)
     return IndicesMinuteResponse(
         cn=[IndexMinuteData(**item) for item in data.get("cn", [])],
         hk=[IndexMinuteData(**item) for item in data.get("hk", [])],
+        us=[IndexMinuteData(**item) for item in data.get("us", [])],
     )
 
 
