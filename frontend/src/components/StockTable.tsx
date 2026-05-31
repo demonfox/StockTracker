@@ -21,6 +21,7 @@ interface StockTableProps {
   loading: boolean;
   onRemoveStock: (symbol: string) => void;
   onAddStock: () => void;
+  onStockClick?: (stock: Stock) => void;
 }
 
 // ── Column definition ────────────────────────────────────────────────
@@ -150,6 +151,7 @@ export default function StockTable({
   loading,
   onRemoveStock,
   onAddStock,
+  onStockClick,
 }: StockTableProps) {
   const [sort, setSort] = useState<SortConfig>({
     field: "id",
@@ -467,7 +469,7 @@ export default function StockTable({
           </span>
         </div>
         <p className="text-[10px] text-content-muted">
-          点击表头排序 · A股红涨绿跌 · 美股绿涨红跌
+          点击表头排序 · 点击A股行查看详情 · A股红涨绿跌 · 美股绿涨红跌
         </p>
       </div>
 
@@ -504,9 +506,15 @@ export default function StockTable({
                 className={`stock-row border-t border-gray-50 transition-all duration-200
                             hover:bg-surface-secondary/60
                             ${deletingSymbol === stock.symbol ? "opacity-0 scale-y-0 h-0" : ""}
+                            ${onStockClick && stock.market === "CN" ? "cursor-pointer" : ""}
                             `}
                 style={{
                   animationDelay: `${idx * 30}ms`,
+                }}
+                onClick={() => {
+                  if (onStockClick && stock.market === "CN") {
+                    onStockClick(stock);
+                  }
                 }}
               >
                 {columns.map((col) => (

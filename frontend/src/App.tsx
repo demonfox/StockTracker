@@ -16,7 +16,9 @@ import Header from "./components/Header";
 import MarketIndices from "./components/MarketIndices";
 import MarketSummary from "./components/MarketSummary";
 import StockTable from "./components/StockTable";
+import StockDetailPopup from "./components/StockDetailPopup";
 import AddStockModal from "./components/AddStockModal";
+import type { Stock } from "./types/stock";
 
 function App() {
   const {
@@ -37,6 +39,7 @@ function App() {
   const { indices, minuteData, loading: indicesLoading } = useIndices();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailStock, setDetailStock] = useState<Stock | null>(null);
 
   return (
     <div className="min-h-screen bg-surface-background font-sans">
@@ -91,6 +94,7 @@ function App() {
           loading={loading}
           onRemoveStock={removeStock}
           onAddStock={() => setModalOpen(true)}
+          onStockClick={(stock) => setDetailStock(stock)}
         />
       </main>
 
@@ -117,6 +121,13 @@ function App() {
           API 文档 ↗
         </a>
       </footer>
+
+      {/* ── Stock Detail Popup ── */}
+      <StockDetailPopup
+        stock={detailStock}
+        open={detailStock !== null}
+        onClose={() => setDetailStock(null)}
+      />
 
       {/* ── Add Stock Modal ── */}
       <AddStockModal
