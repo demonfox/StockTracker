@@ -161,11 +161,12 @@ def _parse_qt(
         turnover = turnover_raw * 10_000 if turnover_raw is not None else None
 
     # ── Market cap / circ cap (亿 → 原始货币) ─────────────────────
-    market_cap_raw = _safe_float(qt[44])
-    market_cap = market_cap_raw * 1e8 if market_cap_raw is not None else None
-
-    circ_cap_raw = _safe_float(qt[45])
+    # qt[44] = 流通市值, qt[45] = 总市值 (单位：亿)
+    circ_cap_raw = _safe_float(qt[44])
     circ_cap = circ_cap_raw * 1e8 if circ_cap_raw is not None else None
+
+    market_cap_raw = _safe_float(qt[45])
+    market_cap = market_cap_raw * 1e8 if market_cap_raw is not None else None
 
     # ── PB ratio — different index per market ─────────────────────
     # CN: qt[46];  US: qt[51];  HK: qt[56] (qt[46] is English name).
