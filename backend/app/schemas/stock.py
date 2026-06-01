@@ -174,3 +174,22 @@ class IndicesMinuteResponse(BaseModel):
         default_factory=list,
         description="US index minute data",
     )
+
+
+# ── Stock K-line (Weekly) Schemas ────────────────────────────────────
+
+class KlinePoint(BaseModel):
+    """A single K-line data point (weekly)."""
+    date: str = Field(description="Date string, e.g. '2025-06-06'")
+    close: float = Field(description="Closing price (前复权)")
+
+
+class StockKlineResponse(BaseModel):
+    """52-week weekly K-line data for a stock."""
+    symbol: str = Field(description="Stock symbol")
+    name: str | None = Field(None, description="Stock name")
+    market: str = Field(description="Market identifier: CN, US, or HK")
+    points: list[KlinePoint] = Field(
+        default_factory=list,
+        description="Weekly close prices (oldest first)",
+    )

@@ -3,16 +3,26 @@
  *
  * Displays key financial metrics for a stock when the user clicks a row
  * in the StockTable. Currently supports CN (A-share) stocks with:
- * - Price range (today + 52-week)
+ * - 52-week price trend chart (weekly close prices)
  * - Valuation metrics (P/E, P/B)
  * - Market data (cap, volume, turnover)
  *
  * Uses a modal overlay with smooth animations.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { X, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+} from "recharts";
 import type { Stock } from "../types/stock";
+import { fetchStockKline, type KlinePoint } from "../services/api";
 
 // ── Props ────────────────────────────────────────────────────────────
 
@@ -55,17 +65,12 @@ function fmtRatio(n: number | null): string {
   return n.toFixed(2);
 }
 
-// ── Helper: 52-week position percentage ──────────────────────────────
-
-function get52wPosition(current: number | null, low: number | null, high: number | null): number | null {
-  if (current === null || low === null || high === null) return null;
-  if (high === low) return 50;
-  return ((current - low) / (high - low)) * 100;
-}
-
 // ── Component ────────────────────────────────────────────────────────
 
 export default function StockDetailPopup({ stock, open, onClose }: StockDetailPopupProps) {
+  const [klineData, setKlineData] = useState<KlinePoint[]>([]);
+  const [klineLoading, setKlineLoading] = useState(false);
+
   // Keyboard: Escape to close
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -74,6 +79,27 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
+
+  // Fetch K-line data when popup opens
+  useEffect(() => {
+    if (!open || !stock) {
+      setKlineData([]);
+      return;
+    }
+    let cancelled = false;
+    setKlineLoading(true);
+    fetchStockKline(stock.symbol)
+      .then((res) => {
+        if (!cancelled) setKlineData(res.points);
+      })
+      .catch(() => {
+        if (!cancelled) setKlineData([]);
+      })
+      .finally(() => {
+        if (!cancelled) setKlineLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, stock]);
 
   if (!open || !stock) return null;
 
@@ -90,8 +116,6 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
       : stock.change_percent > 0
         ? TrendingUp
         : TrendingDown;
-
-  const position52w = get52wPosition(stock.current_price, stock.low_52w, stock.high_52w);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -160,37 +184,88 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
         {/* Body: Metric sections */}
         <div className="px-6 py-5 space-y-5">
 
-          {/* ── 52-Week Range ── */}
+          {/* ── 52-Week Price Trend Chart ── */}
           <section>
             <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-wider mb-3">
-              52 周价格区间
+              52 周价格走势
             </h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-mono text-stock-down">{fmtPrice(stock.low_52w)}</span>
-                <span className="text-content-muted">当前位置</span>
-                <span className="font-mono text-stock-up">{fmtPrice(stock.high_52w)}</span>
+            {klineLoading ? (
+              <div className="h-[160px] flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
               </div>
-              {/* Visual bar */}
-              <div className="relative h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-stock-down/30 via-yellow-200/50 to-stock-up/30"
-                  style={{ width: "100%" }}
-                />
-                {position52w !== null && (
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full
-                               bg-white border-2 border-primary shadow-sm"
-                    style={{ left: `calc(${Math.min(Math.max(position52w, 2), 98)}% - 6px)` }}
-                  />
-                )}
+            ) : klineData.length > 0 ? (
+              <div className="h-[160px] -mx-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={klineData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="klineGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#1677FF" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#1677FF" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 9, fill: "#8C8C8C" }}
+                      tickFormatter={(v: string) => v.slice(5, 7) + "月"}
+                      interval="preserveStartEnd"
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      domain={["dataMin", "dataMax"]}
+                      tick={{ fontSize: 9, fill: "#8C8C8C" }}
+                      tickFormatter={(v: number) => v.toFixed(0)}
+                      axisLine={false}
+                      tickLine={false}
+                      width={45}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        fontSize: 11,
+                        borderRadius: 8,
+                        border: "1px solid #f0f0f0",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      }}
+                      labelFormatter={(label) => `周: ${label}`}
+                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, "收盘价"]}
+                    />
+                    {stock.current_price !== null && (
+                      <ReferenceLine
+                        y={stock.current_price}
+                        stroke="#1677FF"
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.6}
+                      />
+                    )}
+                    <Area
+                      type="monotone"
+                      dataKey="close"
+                      stroke="#1677FF"
+                      strokeWidth={1.5}
+                      fill="url(#klineGradient)"
+                      dot={false}
+                      activeDot={{ r: 3, fill: "#1677FF", stroke: "#fff", strokeWidth: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+                {/* Legend: 52w high/low + current */}
+                <div className="flex items-center justify-between text-[10px] mt-1 px-2">
+                  <span className="text-stock-down font-mono">
+                    52周低: {fmtPrice(stock.low_52w)}
+                  </span>
+                  <span className="text-primary font-mono font-semibold">
+                    现价: {fmtPrice(stock.current_price)}
+                  </span>
+                  <span className="text-stock-up font-mono">
+                    52周高: {fmtPrice(stock.high_52w)}
+                  </span>
+                </div>
               </div>
-              {position52w !== null && (
-                <p className="text-[10px] text-content-muted text-center">
-                  当前价格位于 52 周区间的 {position52w.toFixed(0)}% 位置
-                </p>
-              )}
-            </div>
+            ) : (
+              <div className="h-[160px] flex items-center justify-center text-xs text-content-muted">
+                暂无 K 线数据
+              </div>
+            )}
           </section>
 
           {/* ── Today's Range ── */}

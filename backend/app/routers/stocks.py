@@ -32,9 +32,11 @@ from app.schemas.stock import (
     IndexQuote,
     IndicesMinuteResponse,
     IndicesResponse,
+    KlinePoint,
     MessageResponse,
     SchedulerStatusResponse,
     StockCreate,
+    StockKlineResponse,
     StockListResponse,
     StockResponse,
 )
@@ -45,6 +47,7 @@ from app.services.scheduler import (
 )
 from app.services.stock_fetcher import fetch_stocks_by_symbols
 from app.services.index_fetcher import fetch_all_indices, fetch_indices_minute
+from app.services.tencent_api import fetch_cn_stock_weekly_kline
 from app.database.crud import batch_update_stock_data
 
 logger = logging.getLogger(__name__)
@@ -151,6 +154,48 @@ async def delete_stock(
     return MessageResponse(
         message=f"Stock '{symbol}' removed successfully.",
         success=True,
+    )
+
+
+# ── Stock K-line endpoint ──────────────────────────────────────────────
+
+@router.get("/stocks/{symbol}/kline", response_model=StockKlineResponse)
+async def get_stock_kline(
+    symbol: str,
+    db: AsyncSession = Depends(get_db),
+) -> StockKlineResponse:
+    """
+    Get 52-week weekly K-line data for a CN stock.
+
+    Returns weekly closing prices (前复权) for the past ~52 weeks,
+    suitable for rendering a price trend chart.
+    """
+    stock = await get_stock_by_symbol(db, symbol)
+    if stock is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stock with symbol '{symbol}' not found.",
+        )
+
+    if stock.market != "CN":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Weekly K-line is currently only supported for CN stocks.",
+        )
+
+    loop = asyncio.get_event_loop()
+    bars = await loop.run_in_executor(
+        None,
+        fetch_cn_stock_weekly_kline,
+        symbol,
+        52,
+    )
+
+    return StockKlineResponse(
+        symbol=symbol,
+        name=stock.name,
+        market="CN",
+        points=[KlinePoint(date=b["date"], close=b["close"]) for b in bars],
     )
 
 

@@ -77,6 +77,28 @@ export async function triggerRefresh(): Promise<MessageResponse> {
   return data;
 }
 
+// ── Stock K-line ─────────────────────────────────────────────────────
+
+/** K-line point (weekly close price). */
+export interface KlinePoint {
+  date: string;
+  close: number;
+}
+
+/** Response from GET /api/stocks/{symbol}/kline */
+export interface StockKlineResponse {
+  symbol: string;
+  name: string | null;
+  market: string;
+  points: KlinePoint[];
+}
+
+/** Fetch 52-week weekly K-line data for a CN stock. */
+export async function fetchStockKline(symbol: string): Promise<StockKlineResponse> {
+  const { data } = await api.get<StockKlineResponse>(`/stocks/${symbol}/kline`);
+  return data;
+}
+
 // ── Health Check ─────────────────────────────────────────────────────
 
 /** Ping the backend to check connectivity. */
