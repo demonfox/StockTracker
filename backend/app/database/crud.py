@@ -31,13 +31,22 @@ async def get_all_stocks(db: AsyncSession) -> list[Stock]:
 async def get_stock_by_symbol(
     db: AsyncSession,
     symbol: str,
-    market: str = "CN",
+    market: Optional[str] = None,
 ) -> Optional[Stock]:
-    """Return a single stock by its symbol and market, or None if not found."""
-    result = await db.execute(
-        select(Stock).where(Stock.symbol == symbol, Stock.market == market)
-    )
-    return result.scalar_one_or_none()
+    """
+    Return a single stock by its symbol, or None if not found.
+
+    Args:
+        db: Async database session.
+        symbol: Stock ticker symbol (e.g. "600519", "00700", "AAPL").
+        market: If provided, also filter by market (e.g. "CN", "HK", "US").
+                If None, returns the first match regardless of market.
+    """
+    stmt = select(Stock).where(Stock.symbol == symbol)
+    if market is not None:
+        stmt = stmt.where(Stock.market == market)
+    result = await db.execute(stmt)
+    return result.scalars().first()
 
 
 async def get_tracked_symbols(db: AsyncSession) -> list[tuple[str, str]]:

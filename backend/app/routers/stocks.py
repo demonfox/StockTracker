@@ -47,7 +47,10 @@ from app.services.scheduler import (
 )
 from app.services.stock_fetcher import fetch_stocks_by_symbols
 from app.services.index_fetcher import fetch_all_indices, fetch_indices_minute
-from app.services.tencent_api import fetch_cn_stock_weekly_kline
+from app.services.tencent_api import (
+    fetch_cn_stock_weekly_kline,
+    fetch_hk_stock_weekly_kline,
+)
 from app.database.crud import batch_update_stock_data
 
 logger = logging.getLogger(__name__)
@@ -165,10 +168,11 @@ async def get_stock_kline(
     db: AsyncSession = Depends(get_db),
 ) -> StockKlineResponse:
     """
-    Get 52-week weekly K-line data for a CN stock.
+    Get 52-week weekly K-line data for a stock.
 
-    Returns weekly closing prices (前复权) for the past ~52 weeks,
-    suitable for rendering a price trend chart.
+    Supports CN (A-share) and HK stocks. Returns weekly closing prices
+    (前复权) for the past ~52 weeks, suitable for rendering a price
+    trend chart.
     """
     stock = await get_stock_by_symbol(db, symbol)
     if stock is None:
@@ -177,16 +181,22 @@ async def get_stock_kline(
             detail=f"Stock with symbol '{symbol}' not found.",
         )
 
-    if stock.market != "CN":
+    market = stock.market
+
+    if market == "CN":
+        fetch_func = fetch_cn_stock_weekly_kline
+    elif market == "HK":
+        fetch_func = fetch_hk_stock_weekly_kline
+    else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Weekly K-line is currently only supported for CN stocks.",
+            detail=f"Weekly K-line is not yet supported for {market} stocks.",
         )
 
     loop = asyncio.get_event_loop()
     bars = await loop.run_in_executor(
         None,
-        fetch_cn_stock_weekly_kline,
+        fetch_func,
         symbol,
         52,
     )
@@ -194,7 +204,7 @@ async def get_stock_kline(
     return StockKlineResponse(
         symbol=symbol,
         name=stock.name,
-        market="CN",
+        market=market,
         points=[KlinePoint(date=b["date"], close=b["close"]) for b in bars],
     )
 

@@ -32,6 +32,48 @@ interface StockDetailPopupProps {
   onClose: () => void;
 }
 
+// ── Market-specific config ────────────────────────────────────────────
+
+interface MarketConfig {
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeRing: string;
+  currencySymbol: string;
+  iconGradientFrom: string;
+  iconGradientTo: string;
+}
+
+const MARKET_CONFIG: Record<string, MarketConfig> = {
+  CN: {
+    label: "CN",
+    badgeBg: "bg-red-50",
+    badgeText: "text-red-600",
+    badgeRing: "ring-red-200/60",
+    currencySymbol: "¥",
+    iconGradientFrom: "from-red-50",
+    iconGradientTo: "to-red-100",
+  },
+  HK: {
+    label: "HK",
+    badgeBg: "bg-orange-50",
+    badgeText: "text-orange-600",
+    badgeRing: "ring-orange-200/60",
+    currencySymbol: "HK$",
+    iconGradientFrom: "from-orange-50",
+    iconGradientTo: "to-orange-100",
+  },
+  US: {
+    label: "US",
+    badgeBg: "bg-blue-50",
+    badgeText: "text-blue-600",
+    badgeRing: "ring-blue-200/60",
+    currencySymbol: "$",
+    iconGradientFrom: "from-blue-50",
+    iconGradientTo: "to-blue-100",
+  },
+};
+
 // ── Formatters ───────────────────────────────────────────────────────
 
 function fmtPrice(n: number | null): string {
@@ -80,9 +122,14 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  // Fetch K-line data when popup opens
+  // Fetch K-line data when popup opens (CN and HK supported)
   useEffect(() => {
     if (!open || !stock) {
+      setKlineData([]);
+      return;
+    }
+    // Only fetch kline for supported markets
+    if (stock.market !== "CN" && stock.market !== "HK") {
       setKlineData([]);
       return;
     }
@@ -117,6 +164,9 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
         ? TrendingUp
         : TrendingDown;
 
+  const mktCfg = MARKET_CONFIG[stock.market] ?? MARKET_CONFIG.CN;
+  const klineSupported = stock.market === "CN" || stock.market === "HK";
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -145,8 +195,8 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
         {/* Header: Stock identity + price */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100">
           <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-50 to-red-100
-                            flex items-center justify-center flex-shrink-0">
+            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${mktCfg.iconGradientFrom} ${mktCfg.iconGradientTo}
+                            flex items-center justify-center flex-shrink-0`}>
               <TrendIcon className={`w-5 h-5 ${changeColor}`} />
             </div>
             <div className="flex-1 min-w-0">
@@ -154,9 +204,9 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
                 <h2 className="text-lg font-bold text-content-primary truncate">
                   {stock.name ?? stock.symbol}
                 </h2>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold
-                                  bg-red-50 text-red-600 ring-1 ring-red-200/60">
-                  CN
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold
+                                  ${mktCfg.badgeBg} ${mktCfg.badgeText} ring-1 ${mktCfg.badgeRing}`}>
+                  {mktCfg.label}
                 </span>
               </div>
               <p className="text-xs text-content-muted font-mono mt-0.5">
@@ -184,7 +234,8 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
         {/* Body: Metric sections */}
         <div className="px-6 py-5 space-y-5">
 
-          {/* ── 52-Week Price Trend Chart ── */}
+          {/* ── 52-Week Price Trend Chart (CN & HK) ── */}
+          {klineSupported && (
           <section>
             <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-wider mb-3">
               52 周价格走势
@@ -227,7 +278,7 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
                         boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                       }}
                       labelFormatter={(label) => `周: ${label}`}
-                      formatter={(value) => [`¥${Number(value).toFixed(2)}`, "收盘价"]}
+                      formatter={(value) => [`${mktCfg.currencySymbol}${Number(value).toFixed(2)}`, "收盘价"]}
                     />
                     {stock.current_price !== null && (
                       <ReferenceLine
@@ -267,6 +318,7 @@ export default function StockDetailPopup({ stock, open, onClose }: StockDetailPo
               </div>
             )}
           </section>
+          )}
 
           {/* ── Today's Range ── */}
           <section>

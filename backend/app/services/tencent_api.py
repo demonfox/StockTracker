@@ -372,6 +372,58 @@ def fetch_cn_stock_weekly_kline(
     return result
 
 
+def fetch_hk_stock_weekly_kline(
+    code: str,
+    count: int = 52,
+) -> list[dict[str, Any]]:
+    """
+    Fetch weekly K-line data (前复权) for a HK stock.
+
+    Args:
+        code:  HK stock code, e.g. ``"00700"``.
+        count: Number of most-recent weekly bars to request (default 52).
+
+    Returns:
+        A list of dicts with ``{"date": "YYYY-MM-DD", "close": float}``
+        ordered from oldest to newest. Returns empty list on failure.
+    """
+    tencent_symbol = f"hk{code}"
+
+    url = f"{_KLINE_URL}?param={tencent_symbol},week,,,{count},qfq"
+
+    try:
+        raw = _do_request(url)
+        data = json.loads(raw)
+    except Exception as exc:
+        logger.warning(
+            "Tencent weekly kline API failed for HK/%s: %s", code, exc,
+        )
+        return []
+
+    try:
+        stock_node = data["data"][tencent_symbol]
+        # HK uses 'week' key (not 'qfqweek')
+        kline_key = "qfqweek" if "qfqweek" in stock_node else "week"
+        bars = stock_node[kline_key]
+    except (KeyError, TypeError) as exc:
+        logger.warning(
+            "Tencent weekly kline response structure unexpected for HK/%s: %s",
+            code, exc,
+        )
+        return []
+
+    # Each bar: [date, open, close, high, low, volume, ...]
+    result = []
+    for bar in bars:
+        if len(bar) < 3:
+            continue
+        close = _safe_float(bar[2])
+        if close is not None:
+            result.append({"date": bar[0], "close": close})
+
+    return result
+
+
 def fetch_hk_stock_kline(
     code: str,
     count: int = 1,
