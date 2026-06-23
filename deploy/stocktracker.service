@@ -2,17 +2,27 @@
 Description=StockTracker - A-Share & HK & US Stock Real-time Tracker
 After=network.target
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=exec
 User=deploy
 Group=deploy
-WorkingDirectory=/opt/stocktracker
-ExecStart=/opt/stocktracker/run_prod.sh --port 8000 --workers 2
+WorkingDirectory=/opt/StockTracker
+ExecStart=/opt/StockTracker/run_prod.sh --port 80 --workers 2
 Restart=always
 RestartSec=5
-StartLimitIntervalSec=60
-StartLimitBurst=5
+
+# IMPORTANT: Set PATH so that node/npm/python3 can be found.
+# Adjust the paths below to match your server's actual installation paths.
+# Run "which node" and "which python3" to find them.
+#
+# Common examples:
+#   - nvm:    /home/deploy/.nvm/versions/node/v18.20.0/bin
+#   - system: /usr/local/bin
+#   - pyenv:  /home/deploy/.pyenv/shims
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/root/.nvm/versions/node/v22.22.0/bin
 
 # Graceful shutdown
 KillSignal=SIGTERM
@@ -25,8 +35,8 @@ Environment=NODE_ENV=production
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/stocktracker/backend
+ProtectHome=false
+ReadWritePaths=/opt/StockTracker/backend
 PrivateTmp=true
 
 # Logging
