@@ -6,7 +6,7 @@
  * showing minute-by-minute price movement with a prev-close reference line.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
   LineChart,
@@ -22,6 +22,7 @@ import type {
   IndexMinuteData,
   IndicesMinuteResponse,
   IndicesResponse,
+  MarketStatusInfo,
   MarketType,
 } from "../types/stock";
 
@@ -45,6 +46,7 @@ interface MarketIndicesProps {
   indices: IndicesResponse | null;
   minuteData: IndicesMinuteResponse | null;
   loading: boolean;
+  marketStatus?: MarketStatusInfo;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -112,8 +114,20 @@ function formatTime(time: string): string {
 
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MarketIndices({ indices, minuteData, loading }: MarketIndicesProps) {
+export default function MarketIndices({ indices, minuteData, loading, marketStatus }: MarketIndicesProps) {
   const [activeMarket, setActiveMarket] = useState<MarketType>("CN");
+
+  // Auto-focus on the first active market (priority: CN → HK → US)
+  useEffect(() => {
+    if (!marketStatus) return;
+    if (marketStatus.cn_open) {
+      setActiveMarket("CN");
+    } else if (marketStatus.hk_open) {
+      setActiveMarket("HK");
+    } else if (marketStatus.us_open) {
+      setActiveMarket("US");
+    }
+  }, [marketStatus]);
 
   const currentIndices: IndexQuote[] = indices
     ? indices[activeMarket.toLowerCase() as "cn" | "hk" | "us"]

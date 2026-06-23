@@ -76,7 +76,12 @@ function App() {
         )}
 
         {/* Market Indices Panel (tab-based) */}
-        <MarketIndices indices={indices} minuteData={minuteData} loading={indicesLoading} />
+        <MarketIndices
+          indices={indices}
+          minuteData={minuteData}
+          loading={indicesLoading}
+          marketStatus={schedulerStatus?.market_status}
+        />
 
         {/* Market Summary Strip */}
         <MarketSummary
