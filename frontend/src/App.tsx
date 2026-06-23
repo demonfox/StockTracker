@@ -95,6 +95,7 @@ function App() {
           onRemoveStock={removeStock}
           onAddStock={() => setModalOpen(true)}
           onStockClick={(stock) => setDetailStock(stock)}
+          marketStatus={schedulerStatus?.market_status}
         />
       </main>
 

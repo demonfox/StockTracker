@@ -12,7 +12,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
-import type { Stock, SortConfig, SortDirection } from "../types/stock";
+import type { Stock, SortConfig, SortDirection, MarketStatusInfo } from "../types/stock";
 
 // ── Props ────────────────────────────────────────────────────────────
 
@@ -22,6 +22,7 @@ interface StockTableProps {
   onRemoveStock: (symbol: string) => void;
   onAddStock: () => void;
   onStockClick?: (stock: Stock) => void;
+  marketStatus?: MarketStatusInfo;
 }
 
 // ── Column definition ────────────────────────────────────────────────
@@ -144,6 +145,16 @@ function MarketBadge({ market }: { market: string }) {
   );
 }
 
+// ── Market active helper ──────────────────────────────────────────────
+
+function isMarketActive(market: string, status?: MarketStatusInfo): boolean {
+  if (!status) return true; // Default to "active" if status unknown
+  if (market === "CN") return status.cn_open;
+  if (market === "HK") return status.hk_open;
+  if (market === "US") return status.us_open;
+  return true;
+}
+
 // ── Component ────────────────────────────────────────────────────────
 
 export default function StockTable({
@@ -152,6 +163,7 @@ export default function StockTable({
   onRemoveStock,
   onAddStock,
   onStockClick,
+  marketStatus,
 }: StockTableProps) {
   const [sort, setSort] = useState<SortConfig>({
     field: "id",
@@ -351,10 +363,16 @@ export default function StockTable({
   }, []);
 
   const sortedStocks = useMemo(() => {
-    if (!sort.direction) return stocks;
     const arr = [...stocks];
-    const dir = sort.direction === "ascend" ? 1 : -1;
     arr.sort((a, b) => {
+      // Primary: active markets float to top
+      const aActive = isMarketActive(a.market, marketStatus) ? 0 : 1;
+      const bActive = isMarketActive(b.market, marketStatus) ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+
+      // Secondary: user-selected column sort
+      if (!sort.direction) return 0;
+      const dir = sort.direction === "ascend" ? 1 : -1;
       const va = a[sort.field];
       const vb = b[sort.field];
       if (va === null || va === undefined) return 1;
@@ -365,7 +383,7 @@ export default function StockTable({
       return dir * ((va as number) - (vb as number));
     });
     return arr;
-  }, [stocks, sort]);
+  }, [stocks, sort, marketStatus]);
 
   // ── Delete handler ───────────────────────────────────────────────
 
@@ -500,11 +518,16 @@ export default function StockTable({
             </tr>
           </thead>
           <tbody>
-            {sortedStocks.map((stock, idx) => (
+            {sortedStocks.map((stock, idx) => {
+              const active = isMarketActive(stock.market, marketStatus);
+              const rowBg = active
+                ? "bg-amber-100/70 hover:bg-amber-200/80"
+                : "bg-slate-200/60 hover:bg-slate-300/70";
+              return (
               <tr
                 key={stock.id}
                 className={`stock-row border-t border-gray-50 transition-all duration-200
-                            hover:bg-surface-secondary/60
+                            ${rowBg}
                             ${deletingSymbol === stock.symbol ? "opacity-0 scale-y-0 h-0" : ""}
                             ${onStockClick && (stock.market === "CN" || stock.market === "HK") ? "cursor-pointer" : ""}
                             `}
@@ -538,7 +561,8 @@ export default function StockTable({
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
