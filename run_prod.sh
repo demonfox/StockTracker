@@ -165,11 +165,13 @@ echo -e "${CYAN}  StockTracker is running in production mode!${NC}"
 echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  ${GREEN}Application${NC}  →  http://localhost:${PORT}"
-echo -e "  ${GREEN}API Docs${NC}     →  http://localhost:${PORT}/docs"
+echo -e "  ${GREEN}API Docs${NC}     →  disabled in production"
 echo -e "  ${GREEN}Workers${NC}      →  ${WORKERS}"
 echo ""
 echo -e "  Press ${YELLOW}Ctrl+C${NC} to stop the server."
 echo ""
+
+export ENVIRONMENT=production
 
 exec uvicorn app.main:app \
     --host 0.0.0.0 \

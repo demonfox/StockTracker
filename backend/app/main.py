@@ -7,6 +7,7 @@ scheduler start/stop).
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -63,6 +64,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 # ── Application factory ──────────────────────────────────────────────
 
+# Disable Swagger UI / ReDoc in production to mitigate DOM-XSS CVEs
+_is_production = os.getenv("ENVIRONMENT", "").lower() == "production"
+
 app = FastAPI(
     title="StockTracker API",
     description=(
@@ -71,8 +75,8 @@ app = FastAPI(
     ),
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
 )
 
 
