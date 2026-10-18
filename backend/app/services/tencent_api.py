@@ -17,11 +17,17 @@ it can be reused for future features (e.g. multi-day history charts).
 
 import json
 import logging
+import ssl
 import urllib.request
 from datetime import datetime
 from typing import Any
 
+import certifi
+
 logger = logging.getLogger(__name__)
+
+# ── SSL context (uses certifi CA bundle so macOS framework Python works out-of-the-box) ──
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 # ── Tencent Finance K-line endpoint ──────────────────────────────────
 _KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
@@ -82,7 +88,7 @@ def _do_request(url: str) -> bytes:
             "Connection": "close",
         },
     )
-    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+    with urllib.request.urlopen(req, timeout=_TIMEOUT, context=_SSL_CONTEXT) as resp:
         return resp.read()
 
 
